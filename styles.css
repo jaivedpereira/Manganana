@@ -80,24 +80,24 @@ svg{width:22px;height:22px;flex:none}
 .manga-row .rinfo h3{font-size:13.5px;letter-spacing:-.2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .manga-row .rinfo .rsub{font-size:10.5px;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 8px}
 .manga-row .rinfo .rtags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.manga-row .rinfo .rtag-chip{font-size:8.5px;color:#aeb7d1;background:var(--panel2);border:1px solid var(--line);padding:2.5px 7px;border-radius:6px}
-.manga-row .rarrow{color:var(--muted);flex:none}
+.manga-row .rinfo .rtag-chip{font-size:8.5px;color:#aeb7d1;background:var(--panel2);border:1px solid var(--line);padding:2.5px 7px;border-radius:6px}.manga-row .rarrow{color:var(--muted);flex:none}
 .manga-row .rarrow svg{width:18px;height:18px}
 .list-wrap{display:flex;flex-direction:column;gap:11px}
 
 /* ===== PREMIUM (nota + stats) ===== */
+/* o card premium é SEMPRE escuro (estilo streaming) mesmo no tema claro */
 .premium-card{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,#141a2e,#1a1030);border:1px solid #2a2344;border-radius:var(--radius);padding:14px 16px;margin:14px 0 2px}
 .premium-score{display:flex;align-items:center;gap:12px;flex:none}
 .score-big{display:flex;align-items:baseline;color:var(--accent)}
 .score-big span{font-size:34px;font-weight:800;letter-spacing:-1px}
-.score-big small{font-size:11px;color:var(--muted);margin-left:2px}
+.score-big small{font-size:11px;color:#8b94ab;margin-left:2px}
 .score-meta{display:flex;flex-direction:column;gap:2px}
 .score-meta .stars{color:var(--accent);font-size:13px;letter-spacing:1px}
-.score-meta small{font-size:9.5px;color:var(--muted)}
+.score-meta small{font-size:9.5px;color:#8b94ab}
 .premium-stats{flex:1;display:grid;grid-template-columns:repeat(2,1fr);gap:8px 12px}
 .pstat{display:flex;flex-direction:column;gap:1px}
-.pstat small{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-.pstat strong{font-size:12.5px}
+.pstat small{font-size:8.5px;color:#8b94ab;text-transform:uppercase;letter-spacing:.5px}
+.pstat strong{font-size:12.5px;color:#eef1f8}
 
 /* ===== PERSONAGENS ===== */
 .char-head{margin:18px 0 10px}
@@ -273,6 +273,16 @@ body.light .reader-nav{background:linear-gradient(transparent,#faf9f6f2)}
 body.light .nav-btn{background:#e9ecf5;color:var(--text)}
 body.light .nav-btn.primary{background:var(--accent);color:#141300}
 body.light .splash{background:var(--bg)}
+/* ajustes do tema claro para elementos com cores fixas */
+body.light .manga-row .rinfo .rtag-chip{color:#5a6482;background:var(--panel2);border-color:var(--line)}
+body.light .char-img{border-color:var(--line)}
+body.light .search-box{background:#fff;border-color:var(--line)}
+body.light .search-box input{color:var(--text)}
+body.light .chip{background:#fff;border-color:var(--line)}
+body.light .detail-hero .badge{background:#ffffffd9;border-color:var(--line);color:#3a4465}
+body.light .reader-top{background:linear-gradient(#faf9f6f2,transparent)}
+body.light .nav-btn:disabled{opacity:.35}
+body.light .manga-card .cover .tag, body.light .manga-row .rcover .rtag{background:#ffffffd9;color:#6b5b00}
 
 @media(min-width:431px){
   .app-shell{border-left:1px solid var(--line);border-right:1px solid var(--line)}
