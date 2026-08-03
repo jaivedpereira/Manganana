@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0d12" />
+  <title>Manganana — seu universo de mangás</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain"></div>
+  <header class="topbar">
+    <a class="brand" href="#inicio" aria-label="Manganana início"><span class="brand-mark">M</span><span>manga<span>nana</span></span></a>
+    <nav class="nav"><a class="active" href="#inicio">Início</a><a href="#explorar">Explorar</a><a href="#generos">Gêneros</a><a href="#favoritos">Favoritos <b id="favCount">0</b></a></nav>
+    <div class="header-actions"><button class="icon-btn" id="themeToggle" title="Alternar tema">☼</button><button class="profile-btn"><span class="avatar">L</span><span class="profile-name">Leitor</span><span>⌄</span></button></div>
+  </header>
+
+  <main id="inicio">
+    <section class="hero">
+      <div class="hero-copy"><div class="eyebrow"><span class="live-dot"></span> Sua próxima obsessão começa aqui</div><h1>Histórias que<br><em>viram mundos.</em></h1><p>Descubra mangás incríveis, acompanhe seus capítulos favoritos e leia no seu ritmo.</p><div class="hero-actions"><a class="primary-btn" href="#explorar">Explorar biblioteca <span>→</span></a><button class="ghost-btn" id="randomBtn">Estou com sorte <span>✦</span></button></div><div class="hero-stats"><div><strong>12k+</strong><span>títulos</span></div><div><strong>38k+</strong><span>capítulos</span></div><div><strong>100%</strong><span>em português</span></div></div></div>
+      <div class="hero-art"><div class="sun"></div><div class="floating-tag tag-one">✦ NOVO CAPÍTULO</div><div class="floating-tag tag-two">♡ 4.9</div><div class="art-card back"></div><div class="art-card front"><img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=700&q=85" alt="Arte de mangá" /><div class="art-overlay"><span>EM DESTAQUE</span><strong>O Jardim<br>das Estrelas</strong><small>Capítulo 48 • Romance</small></div></div><div class="sparkle s1">✦</div><div class="sparkle s2">✧</div></div>
+    </section>
+
+    <section class="section" id="explorar"><div class="section-heading"><div><span class="section-kicker">CURADORIA MANGANANA</span><h2>Em alta agora <span>↗</span></h2></div><div class="heading-actions"><div class="search"><span>⌕</span><input id="search" placeholder="Buscar mangá..." /></div><button class="filter-btn" id="filterBtn">☷ Filtros</button></div></div><div class="filter-row" id="filters"><button class="chip active" data-filter="all">Todos</button><button class="chip" data-filter="action">Ação</button><button class="chip" data-filter="romance">Romance</button><button class="chip" data-filter="fantasy">Fantasia</button><button class="chip" data-filter="comedy">Comédia</button><button class="chip" data-filter="drama">Drama</button></div><div class="manga-grid" id="mangaGrid"></div><div class="load-row"><button class="load-btn" id="loadMore">Carregar mais <span>↓</span></button><span id="apiStatus">Conectando à biblioteca...</span></div></section>
+
+    <section class="quote-section"><div class="quote-mark">“</div><blockquote>Um bom mangá não é apenas uma história que você lê.<br>É um lugar para onde você volta.</blockquote><div class="quote-line"></div><span>— Manganana</span></section>
+    <section class="section compact" id="generos"><div class="section-heading"><div><span class="section-kicker">EXPLORE POR HUMOR</span><h2>Qual é a sua vibe?</h2></div></div><div class="genre-grid"><a class="genre-card purple" data-genre="fantasy" href="#explorar"><span>✧</span><strong>Fantasia</strong><small>1.842 histórias</small></a><a class="genre-card orange" data-genre="action" href="#explorar"><span>⚡</span><strong>Ação</strong><small>2.309 histórias</small></a><a class="genre-card pink" data-genre="romance" href="#explorar"><span>♡</span><strong>Romance</strong><small>3.116 histórias</small></a><a class="genre-card blue" data-genre="drama" href="#explorar"><span>◒</span><strong>Drama</strong><small>987 histórias</small></a></div></section>
+    <section class="newsletter"><div><span class="section-kicker">FIQUE POR DENTRO</span><h2>Novidades quentinhas,<br>direto no seu e-mail.</h2></div><form id="newsletter"><input type="email" placeholder="seu melhor e-mail" required><button class="primary-btn">Quero receber →</button></form></section>
+  </main>
+  <footer><a class="brand" href="#inicio"><span class="brand-mark">M</span><span>manga<span>nana</span></span></a><p>Feito para quem vive mil histórias.</p><div><a href="#explorar">Explorar</a><a href="#favoritos">Favoritos</a><a href="#">Privacidade</a></div></footer>
+  <div class="toast" id="toast"></div>
+  <div class="modal" id="modal"><div class="modal-panel"><button class="close" id="closeModal">×</button><div id="modalContent"></div></div></div>
+  <script src="app.js"></script>
+</body>
+</html>
