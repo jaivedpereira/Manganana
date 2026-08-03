@@ -407,9 +407,14 @@ function renderLibrary() {
 }
 
 /* ---------- render: detail ---------- */
+// desativa todas as views e ativa só a desejada (evita sobreposição de telas)
+function showView(viewId) {
+  $$('.view').forEach((v) => v.classList.remove('active'));
+  if (viewId) $('#' + viewId).classList.add('active');
+}
+
 async function openDetail(id) {
-  switchTab('', false);
-  $('#view-detail').classList.add('active');
+  showView('view-detail');
   $('#view-detail').querySelector('.content').scrollTop = 0;
   $('#detailContent').innerHTML = '<div style="padding:120px 0;text-align:center;color:var(--muted)"><div class="spinner" style="margin:0 auto 14px"></div>Carregando…</div>';
   $('#bottomNav').classList.add('hidden');
@@ -528,9 +533,8 @@ function resumeRead() {
 
 /* ---------- leitor ---------- */
 async function openChapter(chapterId, startPage = 0) {
+  showView('view-reader');
   $('#bottomNav').classList.add('hidden');
-  $('#view-reader').classList.add('active');
-  $('#view-detail').classList.remove('active');
   const body = $('#readerBody');
   body.innerHTML = '<div class="reader-loading"><div class="spinner"></div>Carregando capítulo…</div>';
   body.scrollTop = 0;
@@ -634,9 +638,8 @@ function nextChapterNav() {
 /* ---------- navegação ---------- */
 function switchTab(tab, keepScroll = true) {
   state.tab = tab;
-  $$('.view').forEach((v) => v.classList.remove('active'));
+  showView(tab ? 'view-' + tab : null);
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  if (tab) $('#view-' + tab).classList.add('active');
   // sempre restaura a barra de navegação ao trocar de aba (corrige bug de sumir)
   $('#bottomNav').classList.remove('hidden');
   if (tab === 'explore' && !$('#exploreGrid').children.length) loadExplore();
@@ -677,13 +680,12 @@ function pickChapter(id) { closeSheets(); openChapter(id); }
 function bindGlobal() {
   $$('.nav-item').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   $$('.see-all').forEach((b) => b.addEventListener('click', () => switchTab('explore')));
-  $('#btnDetailBack').addEventListener('click', () => { $('#view-detail').classList.remove('active'); switchTab('home'); });
+  $('#btnDetailBack').addEventListener('click', () => switchTab('home'));
   $('#btnDetailFav').addEventListener('click', toggleFav);
   $('#btnReaderBack').addEventListener('click', () => {
-    $('#view-reader').classList.remove('active');
-    $('#bottomNav').classList.remove('hidden');
-    if (state.detail) { renderDetail(state.detail); $('#view-detail').classList.add('active'); }
+    if (state.detail) { showView('view-detail'); renderDetail(state.detail); }
     else switchTab('home');
+    $('#bottomNav').classList.remove('hidden');
   });
   $('#btnSettings').addEventListener('click', () => openSheet('#settingsSheet'));
   $('#closeSettings').addEventListener('click', closeSheets);
@@ -758,12 +760,11 @@ function bindGlobal() {
     const rd = $('#view-reader').classList.contains('active');
     const dt = $('#view-detail').classList.contains('active');
     if (rd) {
-      $('#view-reader').classList.remove('active');
-      $('#bottomNav').classList.remove('hidden');
-      if (state.detail) { renderDetail(state.detail); $('#view-detail').classList.add('active'); }
+      if (state.detail) { showView('view-detail'); renderDetail(state.detail); }
       else switchTab('home');
+      $('#bottomNav').classList.remove('hidden');
     }
-    else if (dt) { $('#view-detail').classList.remove('active'); switchTab('home'); }
+    else if (dt) { switchTab('home'); }
   });
   history.replaceState({}, '');
 }
