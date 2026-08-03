@@ -1,0 +1,7 @@
+{
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "devCommand": "python -m http.server 4173",
+  "cleanUrls": true
+}
