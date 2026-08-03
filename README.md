@@ -29,13 +29,25 @@ Abra `http://localhost:4173`
 
 ## 📡 API utilizada
 
-- **MangaDex API v5** — https://api.mangadex.org
-- Busca de mangás com tradução em pt-br (`availableTranslatedLanguage[]=pt-br`)
-- Capas: `uploads.mangadex.org/covers/{mangaId}/{fileName}`
-- Capítulos: feed do mangá (`/manga/{id}/feed`)
-- Páginas: servidor at-home (`/at-home/server/{chapterId}`)
+- **MangaDex API v5** — https://api.mangadex.org (provedor principal)
+  - Busca de mangás com tradução em pt-br (`availableTranslatedLanguage[]=pt-br`)
+  - Capas: `uploads.mangadex.org/covers/{mangaId}/{fileName}`
+  - Capítulos: feed do mangá (`/manga/{id}/feed`)
+  - Páginas: servidor at-home (`/at-home/server/{chapterId}`)
+- **AniList GraphQL** — https://graphql.anilist.co (dados premium: nota, popularidade, personagens)
+- **MangaPill** — https://mangapill.com (provedor secundário de capítulos via scraping serverless)
 
-> Obs: mangás licenciados (sem tradução pt-br no MangaDex) aparecem sem capítulos — é a política de distribuição da plataforma.
+## 🌐 Multi-provedor e idiomas
+
+- **Seletor de idioma**: cada mangá mostra os idiomas disponíveis (pt-br, en, es-la, fr, ja...) com contagem de capítulos — toque para trocar
+- **MangaPill**: quando o MangaDex não tem o capítulo, o app oferece o MangaPill (capítulos em inglês) como alternativa
+- Proxies serverless no Vercel resolvem CORS e bloqueios de User-Agent:
+  - `/api/proxy` — dados MangaDex
+  - `/api/img` — imagens (MangaDex, AniList, MangaPill com Referer correto)
+  - `/api/anilist` — dados premium
+  - `/api/pill` — scraping MangaPill (busca, capítulos, páginas)
+
+> Obs: mangás licenciados (sem tradução pt-br no MangaDex) aparecem sem capítulos pt-br — troque o idioma ou use o MangaPill.
 
 ## 📁 Estrutura
 
