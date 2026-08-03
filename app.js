@@ -295,12 +295,34 @@ function renderContinue() {
     row.innerHTML = '<p class="muted" style="font-size:12px;padding:4px 0">Nada lido ainda — explore e comece sua jornada!</p>';
     return;
   }
-  row.innerHTML = items.map((h) => `
-    <article class="manga-card" onclick="openDetail('${h.id}')">
-      <div class="cover">${coverImg(h.cover, h.title)}<span class="tag">CONTINUAR</span></div>
+  row.innerHTML = items.map((h) => {
+    const pct = h.total ? Math.min(100, Math.round(((h.page + 1) / h.total) * 100)) : null;
+    return `
+    <article class="manga-card" onclick="continueReading('${h.id}')">
+      <div class="cover">${coverImg(h.cover, h.title)}<span class="tag">${pct != null ? pct + '%' : 'CONTINUAR'}</span></div>
       <h3>${esc(h.title)}</h3>
-      <div class="sub">${esc(h.chapter)}</div>
-    </article>`).join('');
+      <div class="sub">${esc(h.chapter)}${pct != null ? ' • pág. ' + (h.page + 1) : ''}</div>
+    </article>`;
+  }).join('');
+}
+
+// abre direto o capítulo/página salvos (sem passar pelo detail)
+async function continueReading(mangaId) {
+  try {
+    const m = await getManga(mangaId);
+    const chs = await getChapters(mangaId);
+    const lastRead = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === mangaId);
+    state.detail = m;
+    state.chapters = chs;
+    if (lastRead) {
+      const ch = chs.find((c) => c.id === lastRead.chapterId);
+      if (ch) { openChapter(ch.id, lastRead.page || 0); return; }
+    }
+    if (chs.length) openChapter(chs[0].id);
+    else toast('Sem capítulos disponíveis');
+  } catch (e) {
+    toast('Erro: ' + e.message);
+  }
 }
 
 /* ---------- render: explore ---------- */
@@ -491,16 +513,21 @@ function resumeRead() {
   const m = state.detail;
   const lastRead = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === m.id);
   if (lastRead) {
-    const idx = state.chapters.findIndex((c) => c.id === lastRead.chapterId);
-    const next = state.chapters[idx + 1] || state.chapters[idx];
-    if (next) return openChapter(next.id);
+    // retoma exatamente no capítulo onde parou (mesmo que seja o último)
+    const ch = state.chapters.find((c) => c.id === lastRead.chapterId);
+    if (ch) {
+      openChapter(ch.id, lastRead.page || 0);
+      return;
+    }
+    // capítulo salvo não existe mais — vai pro primeiro
+    if (state.chapters.length) { openChapter(state.chapters[0].id); return; }
   }
   if (state.chapters.length) openChapter(state.chapters[0].id);
   else toast('Sem capítulos disponíveis');
 }
 
 /* ---------- leitor ---------- */
-async function openChapter(chapterId) {
+async function openChapter(chapterId, startPage = 0) {
   $('#bottomNav').classList.add('hidden');
   $('#view-reader').classList.add('active');
   $('#view-detail').classList.remove('active');
@@ -514,13 +541,29 @@ async function openChapter(chapterId) {
     const base = srv.baseUrl;
     const hash = srv.chapter.hash;
     const files = state.settings.quality === 'dataSaver' ? srv.chapter.dataSaver : srv.chapter.data;
+    const idx = Math.max(0, Math.min(startPage | 0, files.length - 1));
     state.reader = {
-      manga: state.detail, chapter: ch, pages: files, baseUrl: base, hash, idx: 0,
+      manga: state.detail, chapter: ch, pages: files, baseUrl: base, hash, idx,
     };
     renderReader();
+    if (idx > 0) restorePage(idx);
   } catch (e) {
     body.innerHTML = `<div class="empty"><p>Erro: ${esc(e.message)}<br>O capítulo pode não ter páginas em pt-br.</p></div>`;
   }
+}
+
+// rola até a página salva depois das imagens carregarem
+function restorePage(idx) {
+  const tryScroll = () => {
+    const imgs = $$('#readerBody .page-img');
+    const target = imgs[idx];
+    if (target && target.offsetHeight > 0) {
+      target.scrollIntoView({ behavior: 'auto', block: 'start' });
+    } else {
+      setTimeout(tryScroll, 200);
+    }
+  };
+  tryScroll();
 }
 
 function renderReader() {
@@ -551,11 +594,10 @@ function updateReaderNav() {
 function markProgress() {
   const r = state.reader;
   if (!r) return;
-  const pctRead = r.pages.length ? (r.idx + 1) / r.pages.length : 0;
   const entry = {
     id: r.manga.id, title: mangaTitle(r.manga), cover: mangaCover(r.manga),
     chapter: chapterNum(r.chapter), chapterId: r.chapter.id,
-    page: r.idx, ts: Date.now(),
+    page: r.idx, total: r.pages.length, ts: Date.now(),
   };
   state.history = state.history.filter((h) => h.id !== r.manga.id);
   state.history.unshift(entry);
@@ -595,7 +637,10 @@ function switchTab(tab, keepScroll = true) {
   $$('.view').forEach((v) => v.classList.remove('active'));
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   if (tab) $('#view-' + tab).classList.add('active');
+  // sempre restaura a barra de navegação ao trocar de aba (corrige bug de sumir)
+  $('#bottomNav').classList.remove('hidden');
   if (tab === 'explore' && !$('#exploreGrid').children.length) loadExplore();
+  if (tab === 'home') renderContinue();
   if (tab === 'library') renderLibrary();
   if (tab === 'profile') renderProfile();
 }
@@ -636,6 +681,7 @@ function bindGlobal() {
   $('#btnDetailFav').addEventListener('click', toggleFav);
   $('#btnReaderBack').addEventListener('click', () => {
     $('#view-reader').classList.remove('active');
+    $('#bottomNav').classList.remove('hidden');
     if (state.detail) { renderDetail(state.detail); $('#view-detail').classList.add('active'); }
     else switchTab('home');
   });
@@ -711,7 +757,12 @@ function bindGlobal() {
   window.addEventListener('popstate', () => {
     const rd = $('#view-reader').classList.contains('active');
     const dt = $('#view-detail').classList.contains('active');
-    if (rd) { $('#view-reader').classList.remove('active'); if (state.detail) { renderDetail(state.detail); $('#view-detail').classList.add('active'); } else switchTab('home'); }
+    if (rd) {
+      $('#view-reader').classList.remove('active');
+      $('#bottomNav').classList.remove('hidden');
+      if (state.detail) { renderDetail(state.detail); $('#view-detail').classList.add('active'); }
+      else switchTab('home');
+    }
     else if (dt) { $('#view-detail').classList.remove('active'); switchTab('home'); }
   });
   history.replaceState({}, '');
@@ -733,3 +784,4 @@ window.openChapter = openChapter;
 window.toggleFav = toggleFav;
 window.resumeRead = resumeRead;
 window.pickChapter = pickChapter;
+window.continueReading = continueReading;
