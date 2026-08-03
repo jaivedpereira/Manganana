@@ -55,6 +55,58 @@ const state = {
   genres: [],            // tags do MangaDex
 };
 
+/* ---------- AniList: dados premium (nota, popularidade, personagens) ---------- */
+const ANILIST_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'https://graphql.anilist.co'
+  : '/api/anilist';
+
+async function fetchAniList(title) {
+  const query = `{ Media(search: ${JSON.stringify(title)}, type: MANGA) {
+    id title { romaji english }
+    averageScore popularity favourites chapters volumes status
+    genres
+    characters(role: MAIN, perPage: 8, sort: FAVOURITES_DESC) {
+      nodes { id name { full } image { large } description }
+    }
+  } }`;
+  const r = await fetch(ANILIST_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  if (!r.ok) throw new Error('AniList ' + r.status);
+  const d = await r.json();
+  return d?.data?.Media || null;
+}
+
+function anilistScore(media) {
+  const s = media?.averageScore;
+  return s != null ? (s / 10).toFixed(1) : null;
+}
+
+function scoreStars(score) {
+  if (score == null) return '';
+  const n = parseFloat(score);
+  const full = Math.round(n / 2); // 10 -> 5 estrelas
+  return '★'.repeat(full) + '☆'.repeat(5 - full);
+}
+
+function cleanAniDesc(desc) {
+  return (desc || '')
+    .replace(/__([^_]+)__/g, '$1: ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function anilistStatusPt(status) {
+  const map = {
+    FINISHED: 'Completo', RELEASING: 'Publicando', NOT_YET_RELEASED: 'Em breve',
+    CANCELLED: 'Cancelado', HIATUS: 'Hiato',
+  };
+  return map[status] || status || '';
+}
+
 /* ---------- API MangaDex ---------- */
 async function mdFetch(path) {
   const url = API_BASE === API
@@ -422,13 +474,16 @@ async function openDetail(id) {
     const m = await getManga(id);
     state.detail = m;
     state.chapters = await getChapters(id);
-    renderDetail(m);
+    // busca dados premium (AniList) em paralelo — não bloqueia se falhar
+    let premium = null;
+    try { premium = await fetchAniList(mangaTitle(m)); } catch {}
+    renderDetail(m, premium);
   } catch (e) {
     $('#detailContent').innerHTML = `<div class="empty"><p>Erro ao carregar: ${esc(e.message)}</p></div>`;
   }
 }
 
-function renderDetail(m) {
+function renderDetail(m, premium) {
   const faved = state.favs.some((f) => f.id === m.id);
   $('#detailTitleNav').textContent = mangaTitle(m);
   $('#btnDetailFav').classList.toggle('faved', faved);
@@ -437,9 +492,16 @@ function renderDetail(m) {
   const chs = state.chapters;
   const lastRead = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === m.id);
   const hasRead = !!lastRead;
-  const nextCh = hasRead ? chs.find((c) => c.id === lastRead.chapterId) : null;
-  const nextIdx = nextCh ? chs.indexOf(nextCh) + 1 : 0;
-  const resumeCh = nextIdx < chs.length ? chs[nextIdx] : (hasRead ? lastRead.chapterId && chs.find(c => c.id === lastRead.chapterId) : chs[0]);
+
+  // dados premium (AniList)
+  const score = anilistScore(premium);
+  const stars = scoreStars(score);
+  const pop = premium?.popularity ? premium.popularity.toLocaleString('pt-BR') : null;
+  const favCount = premium?.favourites ? premium.favourites.toLocaleString('pt-BR') : null;
+  const statusPt = anilistStatusPt(premium?.status);
+  const totalCaps = premium?.chapters || '';
+  const anigenres = premium?.genres || [];
+  const chars = (premium?.characters?.nodes || []).filter((c) => c.image?.large);
 
   $('#detailContent').innerHTML = `
     <div class="detail-hero">
@@ -454,6 +516,23 @@ function renderDetail(m) {
       <h1>${esc(mangaTitle(m))}</h1>
       ${mangaAltTitles(m) ? `<div class="authors">${esc(mangaAltTitles(m))}</div>` : ''}
       ${mangaAuthors(m) ? `<div class="authors">✍️ ${esc(mangaAuthors(m))}</div>` : ''}
+      ${(score != null || pop || statusPt || totalCaps) ? `
+      <div class="premium-card">
+        ${score != null ? `
+        <div class="premium-score">
+          <div class="score-big"><span>${score}</span><small>/10</small></div>
+          <div class="score-meta">
+            <div class="stars">${stars}</div>
+            <small>Nota da comunidade</small>
+          </div>
+        </div>` : ''}
+        <div class="premium-stats">
+          ${statusPt ? `<div class="pstat"><small>Status</small><strong>${statusPt}</strong></div>` : ''}
+          ${totalCaps ? `<div class="pstat"><small>Capítulos</small><strong>${totalCaps}</strong></div>` : ''}
+          ${pop ? `<div class="pstat"><small>Popularidade</small><strong>${pop}</strong></div>` : ''}
+          ${favCount ? `<div class="pstat"><small>Favoritos</small><strong>${favCount}</strong></div>` : ''}
+        </div>
+      </div>` : ''}
       <div class="detail-actions">
         <button class="btn-primary" onclick="resumeRead()">
           ${hasRead ? '▶ Continuar lendo' : '▶ Começar a ler'}
@@ -466,6 +545,15 @@ function renderDetail(m) {
         <p class="detail-desc ${desc.length > 280 ? 'clamped' : ''}" id="detailDesc">${esc(desc)}</p>
         ${desc.length > 280 ? '<button class="detail-toggle" id="descToggle">Ver mais</button>' : ''}
       ` : ''}
+      ${chars.length ? `
+      <div class="char-head"><h2>Personagens</h2></div>
+      <div class="char-row" id="charRow">
+        ${chars.map((c) => `
+        <div class="char-card" data-cname="${esc(c.name.full)}" data-cdesc="${esc(cleanAniDesc(c.description))}">
+          <div class="char-img"><img src="${px(c.image.large)}" alt="${esc(c.name.full)}" loading="lazy" /></div>
+          <strong>${esc(c.name.full)}</strong>
+        </div>`).join('')}
+      </div>` : ''}
       <div class="chapter-head">
         <h2>Capítulos</h2>
         <span>${chs.length} em pt-br</span>
@@ -512,6 +600,20 @@ function toggleFav() {
   $('#btnDetailFav')?.classList.toggle('faved', idx < 0);
   if (idx < 0) { const b = $('#detailFavBtn'); if (b) b.innerHTML = b.innerHTML.replace('fill="none"', 'fill="currentColor"'); }
   renderLibrary();
+}
+
+// modal de personagem (detalhe premium)
+function openCharModal(name, desc) {
+  const body = $('#charModalBody');
+  body.innerHTML = `
+    <h3>${esc(name)}</h3>
+    <p class="muted">${desc ? esc(desc) : 'Sem descrição disponível.'}</p>`;
+  $('#charModal').classList.add('open');
+  $('#sheetBackdrop').classList.add('open');
+}
+function closeCharModal() {
+  $('#charModal').classList.remove('open');
+  $('#sheetBackdrop').classList.remove('open');
 }
 
 function resumeRead() {
@@ -690,6 +792,7 @@ function bindGlobal() {
   $('#btnSettings').addEventListener('click', () => openSheet('#settingsSheet'));
   $('#closeSettings').addEventListener('click', closeSheets);
   $('#sheetBackdrop').addEventListener('click', closeSheets);
+  $('#sheetBackdrop').addEventListener('click', closeCharModal);
   $('#btnProfile').addEventListener('click', () => switchTab('profile'));
   $('#chapterListBtn').addEventListener('click', () => { renderChapterSheet(); openSheet('#chapterSheet'); });
   $('#closeSheet').addEventListener('click', closeSheets);
@@ -703,6 +806,12 @@ function bindGlobal() {
     $$('#libSeg .seg-btn').forEach((x) => x.classList.remove('active'));
     b.classList.add('active'); libTab = b.dataset.lib; renderLibrary();
   }));
+
+  // personagens: clique abre modal com descrição
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.char-card');
+    if (card) openCharModal(card.dataset.cname, card.dataset.cdesc);
+  });
 
   // settings inputs
   const applyDark = (v) => document.body.classList.toggle('light', !v);
@@ -786,3 +895,5 @@ window.toggleFav = toggleFav;
 window.resumeRead = resumeRead;
 window.pickChapter = pickChapter;
 window.continueReading = continueReading;
+window.openCharModal = openCharModal;
+window.closeCharModal = closeCharModal;
