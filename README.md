@@ -24,6 +24,9 @@ Aplicativo web de leitura de mangá em **português** — catálogo real com a *
 - 🧹 **Qualidade de vida** — histórico de busca recente, botão "ir para página", marcar capítulo como lido, textos revisados em PT-BR
 - 🎠 **Home turbinada** — banner rotativo com **5 destaques** (auto-rotação, swipe e indicadores), botões "Ver tudo" funcionais com paginação, 5 categorias por gênero (Ação, Romance, Fantasia, Terror, Comédia) com **cards grandes estilo home em 2 colunas**
 - 🔄 **Atualização automática** — cache do service worker inteligente (HTML sempre novo + assets versionados), o app se atualiza sozinho sem precisar limpar cache
+- 🏆 **Ranking top 10** com medalhas (🥇🥈🥉) na home
+- 🎯 **Recomendações** — "Pra você" na home (baseado nos seus favoritos/histórico) + "Você também pode gostar" na página do mangá
+- 🔔 **Alertas de capítulo novo** — toast + badge "NOVO" na biblioteca quando um favorito ganha capítulo
 
 ## 🚀 Como rodar
 
