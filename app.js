@@ -12,6 +12,19 @@ const API = 'https://api.mangadex.org';
 const CDN = 'https://uploads.mangadex.org';
 const CORS = 'https://corsproxy.io/?url='; // fallback p/ imagens bloqueadas por hotlink
 
+// Em produção (Vercel) usamos o proxy serverless p/ evitar bloqueio CORS do MangaDex.
+// Em localhost a API responde CORS normalmente, então chamamos direto.
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? API
+  : '/api/proxy';
+
+// Proxy de imagens: o MangaDex bloqueia User-Agent de navegador (404), então
+// em produção as imagens passam pelo nosso proxy com UA de servidor.
+const IMG_PROXY = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? null
+  : '/api/img?url=';
+function px(url) { return IMG_PROXY ? IMG_PROXY + encodeURIComponent(url) : url; }
+
 /* ---------- util ---------- */
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -44,7 +57,10 @@ const state = {
 
 /* ---------- API MangaDex ---------- */
 async function mdFetch(path) {
-  const r = await fetch(API + path, { headers: { 'Accept': 'application/json' } });
+  const url = API_BASE === API
+    ? API + path                       // localhost: direto
+    : API_BASE + '?path=' + encodeURIComponent(path); // produção: proxy
+  const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
   if (!r.ok) throw new Error('MangaDex ' + r.status);
   return r.json();
 }
@@ -66,12 +82,12 @@ function mangaDesc(m) {
 function mangaCover(m) {
   const rel = (m?.relationships ?? []).find((r) => r.type === 'cover_art');
   const fn = rel?.attributes?.fileName;
-  return fn ? `${CDN}/covers/${m.id}/${fn}.256.jpg` : '';
+  return fn ? px(`${CDN}/covers/${m.id}/${fn}.256.jpg`) : '';
 }
 function mangaCoverFull(m) {
   const rel = (m?.relationships ?? []).find((r) => r.type === 'cover_art');
   const fn = rel?.attributes?.fileName;
-  return fn ? `${CDN}/covers/${m.id}/${fn}` : '';
+  return fn ? px(`${CDN}/covers/${m.id}/${fn}`) : '';
 }
 function mangaYear(m) { return m?.attributes?.year || ''; }
 function mangaAuthors(m) {
@@ -140,9 +156,9 @@ async function getChapters(mangaId) {
     p.set('offset', offset);
     p.set('translatedLanguage[]', 'pt-br');
     p.set('order[chapter]', 'asc');
-    p.set('contentRating[]', 'safe');
-    p.set('contentRating[]', 'suggestive');
-    p.set('includes[]', 'scanlation_group');
+    p.append('contentRating[]', 'safe');
+    p.append('contentRating[]', 'suggestive');
+    p.append('includes[]', 'scanlation_group');
     const data = await mdFetch(`/manga/${mangaId}/feed?` + p.toString());
     const batch = data.data ?? [];
     out.push(...batch);
@@ -175,7 +191,7 @@ async function getGenres() {
 /* ---------- render: helpers ---------- */
 function coverImg(src, alt, cls = '') {
   if (!src) return `<div class="cover ${cls}" style="display:grid;place-items:center;color:var(--muted)"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/></svg></div>`;
-  return `<img src="${src}" alt="${esc(alt)}" loading="lazy" onerror="this.onerror=null;this.src='${CORS}${encodeURIComponent(src)}'" />`;
+  return `<img src="${src}" alt="${esc(alt)}" loading="lazy" />`;
 }
 
 function cardHTML(m, faved) {
@@ -208,7 +224,7 @@ async function renderHome() {
       const heroEl = document.getElementById('heroSkeleton');
       heroEl.className = 'hero-card';
       heroEl.innerHTML = `
-        <img src="${full}" alt="${esc(t)}" loading="eager" onerror="this.onerror=null;this.src='${CORS}${encodeURIComponent(full)}'" />
+        <img src="${full}" alt="${esc(t)}" loading="eager" />
         <div class="hero-shade"></div>
         <div class="hero-body">
           <div class="hero-tag">✦ Em destaque</div>
@@ -374,7 +390,7 @@ function renderDetail(m) {
 
   $('#detailContent').innerHTML = `
     <div class="detail-hero">
-      <img src="${cover}" alt="${esc(mangaTitle(m))}" onerror="this.onerror=null;this.src='${CORS}${encodeURIComponent(cover)}'" />
+      <img src="${cover}" alt="${esc(mangaTitle(m))}" />
       <div class="shade"></div>
       <div class="badges">
         ${mangaTags(m).map((t) => `<span class="badge">${esc(t)}</span>`).join('')}
@@ -490,8 +506,7 @@ function renderReader() {
   body.classList.toggle('rtl', state.settings.rtl);
   body.innerHTML = r.pages.map((p) =>
     `<img class="page-img ${mode}" loading="lazy"
-        src="${r.baseUrl}/data/${r.hash}/${p}"
-        onerror="this.onerror=null;this.src='${CORS}${encodeURIComponent(r.baseUrl + '/data/' + r.hash + '/' + p)}'"
+        src="${px(r.baseUrl + '/data/' + r.hash + '/' + p)}"
         alt="página" />`).join('') +
     `<div style="height:40px"></div>`;
   updateReaderNav();
