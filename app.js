@@ -409,6 +409,85 @@ function rowHTML(m, faved) {
   </article>`;
 }
 
+// recomendações: descobre os gêneros favoritos do usuário e busca mangás parecidos
+async function recommendFor() {
+  // coleta ids favoritos + lidos
+  const favIds = state.favs.map((f) => f.id);
+  const histIds = state.history.map((h) => h.id).slice(0, 20);
+  const ids = [...new Set([...favIds, ...histIds])];
+  if (!ids.length) return [];
+
+  // busca os gêneros desses mangás (em lotes de 5)
+  const genreCount = {};
+  let got = 0;
+  for (let i = 0; i < ids.length && got < 10; i += 5) {
+    const batch = ids.slice(i, i + 5);
+    const results = await Promise.allSettled(batch.map((id) => getManga(id)));
+    results.forEach((r) => {
+      if (r.status !== 'fulfilled' || !r.value) return;
+      got++;
+      (r.value.attributes.tags || [])
+        .filter((t) => t.attributes.group === 'genre')
+        .forEach((t) => { const n = t.attributes.name.en; genreCount[n] = (genreCount[n] || 0) + 1; });
+    });
+  }
+
+  // top 2 gêneros
+  const topGenres = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([n]) => n);
+  if (!topGenres.length) return [];
+
+  // busca mangás desses gêneros (via state.genres já carregado)
+  const g = state.genres.find((x) => x.name.toLowerCase() === topGenres[0].toLowerCase());
+  if (!g) return [];
+  const found = await searchManga({ limit: 14, genre: g.id });
+  // exclui os que o usuário já conhece
+  const known = new Set(ids);
+  return found.filter((m) => !known.has(m.id)).slice(0, 10);
+}
+
+// recomendações na página de detalhes — mesmo gênero do mangá atual
+async function loadDetailRecs(m) {
+  const row = $('#detailRecRow');
+  if (!row) return;
+  try {
+    const genres = (m.attributes.tags || [])
+      .filter((t) => t.attributes.group === 'genre')
+      .map((t) => t.attributes.name.en);
+    const g = genres.length ? state.genres.find((x) => x.name.toLowerCase() === genres[0].toLowerCase()) : null;
+    if (!g) { row.innerHTML = ''; return; }
+    const found = await searchManga({ limit: 12, genre: g.id });
+    const list = found.filter((x) => x.id !== m.id).slice(0, 8);
+    row.innerHTML = list.length
+      ? list.map((x) => cardHTML(x, state.favs.some((f) => f.id === x.id))).join('')
+      : '';
+  } catch { row.innerHTML = ''; }
+}
+
+// item do ranking — posição grande + capa + info
+function rankItemHTML(m, pos, faved) {
+  const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+  const title = mangaTitle(m);
+  const cover = mangaCover(m);
+  const year = mangaYear(m);
+  const tags = mangaTags(m);
+  return `
+  <article class="rank-item" data-id="${m.id}" onclick="openDetail('${m.id}')">
+    <div class="rank-pos ${pos <= 3 ? 'top' : ''}">${medals[pos] || pos}</div>
+    <div class="rank-cover">${coverImg(cover, title)}</div>
+    <div class="rank-info">
+      <h3>${esc(title)}</h3>
+      <div class="rank-sub">
+        ${year ? `<span>${year}</span>` : ''}
+        ${faved ? '<span class="rtag">♥</span>' : ''}
+      </div>
+      ${tags.length ? `<div class="rtags">${tags.slice(0, 3).map((t) => `<span class="rtag-chip">${esc(t)}</span>`).join('')}</div>` : ''}
+    </div>
+    <div class="rarrow">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </div>
+  </article>`;
+}
+
 // card grande estilo home (usado no Ver tudo) — capa em destaque + título + ano + tags
 function bigCardHTML(m, faved) {
   const title = mangaTitle(m);
@@ -545,6 +624,25 @@ async function renderHome() {
     const t = await searchManga({ limit: 12, order: 'followedCount' });
     $('#trendingRow').innerHTML = t.map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join('');
   } catch { $('#trendingRow').innerHTML = '<p class="muted" style="font-size:12px">Não foi possível carregar.</p>'; }
+
+  // recomendações ("pra você") — baseado nos gêneros dos favoritos + histórico
+  try {
+    const recs = await recommendFor();
+    const head = $('#recHead');
+    const row = $('#recRow');
+    if (recs.length) {
+      if (head) head.style.display = '';
+      if (row) row.innerHTML = recs.map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join('');
+    } else {
+      if (head) head.style.display = 'none';
+    }
+  } catch { $('#recHead').style.display = 'none'; }
+
+  // ranking (top 10 mais seguidos)
+  try {
+    const top = await searchManga({ limit: 10, order: 'followedCount' });
+    $('#rankList').innerHTML = top.map((m, i) => rankItemHTML(m, i + 1, state.favs.some((f) => f.id === m.id))).join('');
+  } catch { $('#rankList').innerHTML = '<p class="muted" style="font-size:12px">Ranking indisponível.</p>'; }
 
   // recentes (últimos capítulos publicados)
   try {
@@ -779,9 +877,10 @@ function renderLibrary() {
     emptyText.textContent = 'Nenhum capítulo lido ainda.';
   }
   empty.hidden = items.length > 0;
+  const newIds = load('newChapters', {}); // {mangaId: true} com capítulo novo
   grid.innerHTML = items.map((f) => `
     <article class="manga-card" onclick="openDetail('${f.id}')">
-      <div class="cover">${coverImg(f.cover, f.title)}</div>
+      <div class="cover">${coverImg(f.cover, f.title)}${newIds[f.id] ? '<span class="tag novo">NOVO</span>' : ''}</div>
       <h3>${esc(f.title)}</h3>
       <div class="sub">${libTab === 'history' ? esc(f.chapter) : ''}</div>
     </article>`).join('');
@@ -796,6 +895,7 @@ function showView(viewId) {
 
 async function openDetail(id) {
   showView('view-detail');
+  clearNewFlag(id);
   $('#view-detail').querySelector('.content').scrollTop = 0;
   $('#detailContent').innerHTML = '<div style="padding:120px 0;text-align:center;color:var(--muted)"><div class="spinner" style="margin:0 auto 14px"></div>Carregando…</div>';
   $('#bottomNav').classList.add('hidden');
@@ -922,7 +1022,12 @@ function renderDetail(m, premium, langs) {
       <div class="chapter-list">
         ${chs.length ? chs.map((c) => chapterItemHTML(c, lastRead)).join('') : `<p class="muted" style="font-size:12px">Nenhum capítulo neste idioma ainda. Tente outro idioma ou o provedor alternativo.</p>`}
       </div>
+      <div class="section-head"><h2>Você também pode gostar ✨</h2></div>
+      <div class="scroll-row" id="detailRecRow"><div class="spinner"></div></div>
     </div>`;
+
+  // carrega recomendações do mesmo gênero
+  loadDetailRecs(m);
 
   const d = $('#detailDesc');
   if (d) $('#descToggle')?.addEventListener('click', () => {
@@ -948,6 +1053,26 @@ function chapterItemHTML(c, lastRead) {
   </div>`;
 }
 
+function markProgress() {
+  const r = state.reader;
+  if (!r) return;
+  const entry = {
+    id: r.manga.id, title: mangaTitle(r.manga), cover: mangaCover(r.manga),
+    chapter: chapterNum(r.chapter), chapterId: r.chapter.id,
+    page: r.idx, total: r.pages.length, ts: Date.now(),
+  };
+  state.history = state.history.filter((h) => h.id !== r.manga.id);
+  state.history.unshift(entry);
+  store('history', state.history.slice(0, 60));
+  const n = load('readCount', {});
+  n[r.manga.id] = (n[r.manga.id] || 0) + 1;
+  store('readCount', n);
+  // registra o último capítulo visto (para alertas de capítulo novo)
+  const lastSeen = load('lastSeen', {});
+  lastSeen[r.manga.id] = r.chapter.id;
+  store('lastSeen', lastSeen);
+}
+
 // marca um capítulo como lido (ou desmarca) sem abrir
 function markChapterRead(chapterId) {
   const m = state.detail;
@@ -962,6 +1087,9 @@ function markChapterRead(chapterId) {
       id: m.id, title: mangaTitle(m), cover: mangaCover(m),
       chapter: chapterNum(ch), chapterId, page: 0, total: 0, ts: Date.now(),
     });
+    const lastSeen = load('lastSeen', {});
+    lastSeen[m.id] = chapterId;
+    store('lastSeen', lastSeen);
     toast('Capítulo marcado como lido ✓');
   }
   store('history', state.history.slice(0, 60));
@@ -1170,22 +1298,6 @@ function pageJump() {
   if (isNaN(n) || n < 1 || n > total) { toast('Página inválida'); return; }
   state.reader.idx = n - 1;
   scrollToPage();
-}
-
-function markProgress() {
-  const r = state.reader;
-  if (!r) return;
-  const entry = {
-    id: r.manga.id, title: mangaTitle(r.manga), cover: mangaCover(r.manga),
-    chapter: chapterNum(r.chapter), chapterId: r.chapter.id,
-    page: r.idx, total: r.pages.length, ts: Date.now(),
-  };
-  state.history = state.history.filter((h) => h.id !== r.manga.id);
-  state.history.unshift(entry);
-  store('history', state.history.slice(0, 60));
-  const n = load('readCount', {});
-  n[r.manga.id] = (n[r.manga.id] || 0) + 1;
-  store('readCount', n);
 }
 
 function prevPage() { if (state.reader && state.reader.idx > 0) { state.reader.idx--; scrollToPage(); } }
@@ -1661,6 +1773,53 @@ function renderDownloads() {
     </div>`).join('');
 }
 
+/* ---------- alertas de capítulo novo ---------- */
+// verifica se os favoritos têm capítulos novos (rodado no boot, uma vez por sessão)
+async function checkNewChapters() {
+  try {
+    const favs = state.favs;
+    if (!favs.length) return;
+    const lastSeen = load('lastSeen', {});
+    const newIds = load('newChapters', {});
+    let changed = false;
+    const news = [];
+    // verifica no máximo 8 favoritos por vez (limite de requests)
+    const batch = favs.slice(0, 8);
+    const results = await Promise.allSettled(batch.map(async (f) => {
+      const chs = await getChaptersLang(f.id, 'pt-br');
+      if (!chs.length) return null;
+      const latest = chs[chs.length - 1];
+      const seen = lastSeen[f.id];
+      if (seen && latest.id !== seen) {
+        return { id: f.id, title: f.title, num: chapterNum(latest) };
+      }
+      return null;
+    }));
+    results.forEach((r) => {
+      if (r.status === 'fulfilled' && r.value) {
+        news.push(r.value);
+        if (!newIds[r.value.id]) { newIds[r.value.id] = true; changed = true; }
+      }
+    });
+    if (changed) store('newChapters', newIds);
+    if (news.length) {
+      const total = news.length > 1 ? ` (e mais ${news.length - 1})` : '';
+      toast(`🔔 Capítulo novo: ${news[0].title} ${news[0].num}${total}`);
+      renderLibrary();
+    }
+  } catch { /* silencioso */ }
+}
+
+// limpa o marcador "NOVO" quando o usuário abre o mangá
+function clearNewFlag(mangaId) {
+  const newIds = load('newChapters', {});
+  if (newIds[mangaId]) {
+    delete newIds[mangaId];
+    store('newChapters', newIds);
+    renderLibrary();
+  }
+}
+
 /* ---------- boot ---------- */
 (async function boot() {
   bindGlobal();
@@ -1669,6 +1828,7 @@ function renderDownloads() {
   renderLibrary();
   renderProfile();
   registerSW();
+  checkNewChapters();
   setTimeout(() => $('#splash').classList.add('hidden'), 700);
 })();
 

@@ -82,6 +82,8 @@ svg{width:22px;height:22px;flex:none}
 .manga-row .rcover{width:64px;height:88px;border-radius:9px;overflow:hidden;flex:none;background:var(--panel2);position:relative}
 .manga-row .rcover img{width:100%;height:100%;object-fit:cover;display:block}
 .manga-row .rcover .rtag{position:absolute;top:5px;left:5px;background:#070a12b3;color:var(--accent);font-size:7px;font-weight:800;padding:2px 5px;border-radius:5px;letter-spacing:.5px}
+.manga-card .cover .tag{position:absolute;top:6px;left:6px;background:#ff4757;color:#fff;font-size:8px;font-weight:800;padding:3px 7px;border-radius:7px;letter-spacing:.4px}
+.manga-card .cover .tag.novo{animation:pulse 2s infinite}
 .manga-row .rinfo{flex:1;min-width:0}
 .manga-row .rinfo h3{font-size:13.5px;letter-spacing:-.2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .manga-row .rinfo .rsub{font-size:10.5px;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 8px}
@@ -187,6 +189,22 @@ svg{width:22px;height:22px;flex:none}
 .big-card h3{font-size:12px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:700}
 .big-card .btags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
 .big-card .btags .rtag-chip{font-size:8.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);padding:2px 7px;border-radius:8px}
+
+/* ===== RANKING ===== */
+.rank-list{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.rank-item{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer}
+.rank-item:active{background:var(--panel2)}
+.rank-pos{width:38px;height:38px;flex:none;display:grid;place-items:center;font-size:15px;font-weight:800;color:var(--muted);background:var(--panel2);border-radius:11px}
+.rank-pos.top{background:linear-gradient(135deg,#ffd60a,#ffb800);color:#141300;box-shadow:0 4px 14px rgba(255,214,10,.3)}
+.rank-cover{width:42px;height:58px;flex:none;border-radius:8px;overflow:hidden;background:var(--panel2)}
+.rank-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.rank-info{flex:1;min-width:0}
+.rank-info h3{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank-sub{display:flex;gap:6px;align-items:center;margin-top:3px}
+.rank-sub span{font-size:10px;color:var(--muted)}
+.rank-info .rtags{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+.rank-info .rtag-chip{font-size:8.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);padding:2px 7px;border-radius:8px}
+.rank-item .rarrow{color:var(--muted)}
 
 /* ===== GRID ===== */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
