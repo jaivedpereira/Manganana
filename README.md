@@ -17,6 +17,9 @@ Aplicativo web de leitura de mangá em **português** — catálogo real com a *
   - Progresso salvo automaticamente
 - 🌗 Tema escuro (padrão) e claro
 - 📱 Layout mobile-first (estilo app com bottom nav)
+- 📲 **PWA instalável** — instala no celular como app nativo (ícone, tela cheia)
+- ⬇️ **Downloads offline** — baixe capítulos e leia sem internet
+- ⚡ Carregamento instantâneo via service worker
 
 ## 🚀 Como rodar
 
