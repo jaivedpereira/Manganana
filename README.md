@@ -21,6 +21,7 @@ Aplicativo web de leitura de mangá em **português** — catálogo real com a *
 - ⬇️ **Downloads offline** — baixe capítulos e leia sem internet
 - ⚡ Carregamento instantâneo via service worker
 - 🎛️ **Leitor turbinado** — fundo (escuro/sépia/claro), brilho, largura da página, zoom por duplo toque, modo webtoon contínuo, toque nas bordas
+- 🧹 **Qualidade de vida** — histórico de busca recente, botão "ir para página", marcar capítulo como lido, textos revisados em PT-BR
 
 ## 🚀 Como rodar
 
