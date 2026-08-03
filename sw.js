@@ -4,7 +4,7 @@
    - Estratégia: cache-first p/ assets, network-first p/ API
 */
 
-const VERSION = 'manganana-v1.1.0';
+const VERSION = 'manganana-v1.2.0';
 const CORE_CACHE = VERSION + '-core';
 const CHAPTER_CACHE = VERSION + '-chapters';
 

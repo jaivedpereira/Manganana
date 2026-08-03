@@ -44,7 +44,7 @@ function load(key, def) { try { return JSON.parse(localStorage.getItem('mn_' + k
 /* ---------- estado ---------- */
 const state = {
   tab: 'home',
-  settings: load('settings', { mode: 'vertical', quality: 'full', rtl: false, dark: true }),
+  settings: load('settings', { mode: 'vertical', quality: 'full', rtl: false, dark: true, readerBg: 'auto', readerBright: 100, readerWidth: 100, webtoon: false, tapZones: false }),
   favs: load('favs', []),           // [{id, title, cover}]
   history: load('history', []),     // [{id, title, cover, chapter, chapterId, page, ts}]
   readCount: load('readCount', {}), // {mangaId: n páginas lidas}
@@ -905,6 +905,9 @@ function renderReader() {
   body.innerHTML = urls.map((src) =>
     `<img class="page-img ${mode}" loading="lazy" src="${src}" alt="página" />`).join('') +
     `<div style="height:40px"></div>`;
+  applyReaderStyles();
+  initReaderZoom();
+  initTapZones();
   updateReaderNav();
   markProgress();
 }
@@ -949,13 +952,135 @@ function prevChapterNav() {
   const idx = chs.findIndex((c) => c.id === cur);
   if (idx > 0) openChapter(chs[idx - 1].id);
   else toast('Já está no primeiro capítulo');
-}
-function nextChapterNav() {
+}function nextChapterNav() {
   const chs = state.chapters;
   const cur = state.reader?.chapter?.id;
   const idx = chs.findIndex((c) => c.id === cur);
-  if (idx >= 0 && idx < chs.length - 1) openChapter(chs[idx + 1].id);
-  else toast('Último capítulo disponível');
+  if (idx < chs.length - 1) openChapter(chs[idx + 1].id);
+  else toast('Último capítulo');
+}
+
+/* ---------- leitor turbinado ---------- */
+// aplica fundo + brilho + largura no leitor
+function applyReaderStyles() {
+  const s = state.settings;
+  const view = $('#view-reader');
+  const body = $('#readerBody');
+  if (!view) return;
+  // fundo do leitor (auto = segue o tema do app)
+  view.classList.remove('bg-sepia', 'bg-light');
+  if (s.readerBg === 'sepia') view.classList.add('bg-sepia');
+  else if (s.readerBg === 'light') view.classList.add('bg-light');
+  // brilho: overlay com preto/transparente sobre o leitor
+  let ov = $('#readerBrightness');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'readerBrightness';
+    ov.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;background:#000;transition:opacity .2s';
+    view.appendChild(ov);
+  }
+  const b = s.readerBright;
+  ov.style.opacity = b >= 100 ? '0' : String((100 - b) / 100);
+  // largura das páginas
+  if (body) {
+    const w = s.readerWidth;
+    body.style.setProperty('--page-w', w + '%');
+  }
+}
+
+// zoom por pinça/double-tap numa página
+function initReaderZoom() {
+  const body = $('#readerBody');
+  if (!body) return;
+  if (body.dataset.zoomInit) return; // idempotente
+  body.dataset.zoomInit = '1';
+  body.addEventListener('dblclick', (e) => {
+    const img = e.target.closest('.page-img');
+    if (!img) return;
+    img.classList.toggle('zoomed');
+  });
+  // pinch-zoom nativo habilitado (meta viewport já tem user-scalable? garante)
+  const meta = document.querySelector('meta[name=viewport]');
+  if (meta) meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5, user-scalable=yes');
+}
+
+// zonas de toque: tap na borda esquerda = anterior, direita = próximo (só em modo página)
+function initTapZones() {
+  const body = $('#readerBody');
+  if (!body) return;
+  // remove zonas antigas
+  $$('.tap-zone').forEach((z) => z.remove());
+  if (!state.settings.tapZones) return;
+  const mk = (side, fn) => {
+    const z = document.createElement('div');
+    z.className = 'tap-zone ' + side;
+    z.addEventListener('click', fn);
+    body.appendChild(z);
+  };
+  mk('left', () => { if (state.settings.mode !== 'paged') return; prevPage(); });
+  mk('right', () => { if (state.settings.mode !== 'paged') return; nextPage(); });
+}
+
+// webtoon: ao chegar no fim do capítulo, carrega o próximo automaticamente
+function webtoonCheck() {
+  if (!state.settings.webtoon || !state.reader) return;
+  const body = $('#readerBody');
+  if (!body) return;
+  const rect = body.getBoundingClientRect();
+  const last = body.lastElementChild;
+  if (!last) return;
+  const lastRect = last.getBoundingClientRect();
+  if (lastRect.top < rect.bottom + 200) {
+    const chs = state.chapters;
+    const idx = chs.findIndex((c) => c.id === state.reader.chapter.id);
+    if (idx < chs.length - 1) {
+      // carrega o próximo sem sair da view
+      const next = chs[idx + 1];
+      loadNextWebtoon(next);
+    }
+  }
+}
+
+async function loadNextWebtoon(ch) {
+  const r = state.reader;
+  if (!r) return;
+  const body = $('#readerBody');
+  try {
+    if (ch._provider === 'mangapill') {
+      const data = await pillChapter(ch._pillSlug);
+      if (!data.pages?.length) return;
+      const urls = data.pages.map((p) => px(p));
+      body.insertAdjacentHTML('beforeend', webtoonBlockHTML(ch, urls));
+    } else {
+      const srv = await getChapterPages(ch.id);
+      const files = state.settings.quality === 'dataSaver' ? srv.chapter.dataSaver : srv.chapter.data;
+      const urls = files.map((p) => px(srv.baseUrl + '/data/' + srv.chapter.hash + '/' + p));
+      body.insertAdjacentHTML('beforeend', webtoonBlockHTML(ch, urls));
+    }
+    // atualiza o reader para o próximo capítulo (para progresso/nav)
+    state.reader.chapter = ch;
+    state.reader.pages = [];
+    state.reader.idx = 0;
+    updateReaderNav();
+    markProgress();
+  } catch { /* silencioso: sem internet ou capítulo sem páginas */ }
+}
+
+function webtoonBlockHTML(ch, urls) {
+  return `<div class="webtoon-sep">${esc(chapterNum(ch))} ${chapterTitle(ch) ? '— ' + esc(chapterTitle(ch)) : ''}</div>` +
+    urls.map((src) => `<img class="page-img vertical" loading="lazy" src="${src}" alt="página" />`).join('');
+}
+
+function openReaderSettings() {
+  const s = state.settings;
+  $('#rsBright').value = s.readerBright;
+  $('#rsBrightVal').textContent = s.readerBright + '%';
+  $('#rsWidth').value = s.readerWidth;
+  $('#rsWidthVal').textContent = s.readerWidth + '%';
+  $('#rsWebtoon').checked = !!s.webtoon;
+  $('#rsTapZones').checked = !!s.tapZones;
+  $$('#rsBgChips .rs-chip').forEach((c) => c.classList.toggle('active', c.dataset.bg === s.readerBg));
+  openSheet('#readerSettingsSheet');
 }
 
 /* ---------- navegação ---------- */
@@ -1018,6 +1143,29 @@ function bindGlobal() {
   $('#chapterListBtn').addEventListener('click', () => { renderChapterSheet(); openSheet('#chapterSheet'); });
   $('#closeSheet').addEventListener('click', closeSheets);
   $('#btnDownloadChapter').addEventListener('click', downloadChapter);
+  $('#btnReaderSettings').addEventListener('click', openReaderSettings);
+  $('#closeReaderSettings').addEventListener('click', closeSheets);
+  $('#rsBright').addEventListener('input', (e) => {
+    state.settings.readerBright = +e.target.value; store('settings', state.settings);
+    $('#rsBrightVal').textContent = e.target.value + '%'; applyReaderStyles();
+  });
+  $('#rsWidth').addEventListener('input', (e) => {
+    state.settings.readerWidth = +e.target.value; store('settings', state.settings);
+    $('#rsWidthVal').textContent = e.target.value + '%'; applyReaderStyles();
+  });
+  $('#rsWebtoon').addEventListener('change', (e) => {
+    state.settings.webtoon = e.target.checked; store('settings', state.settings);
+    toast(e.target.checked ? 'Modo webtoon ativado — rolagem contínua' : 'Modo webtoon desativado');
+  });
+  $('#rsTapZones').addEventListener('change', (e) => {
+    state.settings.tapZones = e.target.checked; store('settings', state.settings);
+    initTapZones();
+  });
+  $$('#rsBgChips .rs-chip').forEach((c) => c.addEventListener('click', () => {
+    state.settings.readerBg = c.dataset.bg; store('settings', state.settings);
+    $$('#rsBgChips .rs-chip').forEach((x) => x.classList.toggle('active', x === c));
+    applyReaderStyles();
+  }));
   $('#nextChapter').addEventListener('click', nextChapterNav);
   $('#btnClearHistory').addEventListener('click', () => {
     state.history = []; store('history', []); store('readCount', {});
@@ -1067,7 +1215,7 @@ function bindGlobal() {
     x0 = null;
   }, { passive: true });
 
-  // scroll marca progresso (índice aproximado)
+  // scroll marca progresso (índice aproximado) + webtoon contínuo
   $('#readerBody').addEventListener('scroll', debounce(() => {
     if (!state.reader) return;
     const imgs = $$('#readerBody .page-img');
@@ -1076,6 +1224,7 @@ function bindGlobal() {
     imgs.forEach((img, i) => { if (img.offsetTop < mid) idx = i; });
     state.reader.idx = idx;
     updateReaderNav(); markProgress();
+    webtoonCheck();
   }, 400), { passive: true });
 
   // keyboard
@@ -1271,3 +1420,4 @@ window.switchLang = switchLang;
 window.switchProvider = switchProvider;
 window.downloadChapter = downloadChapter;
 window.deleteDownload = deleteDownload;
+window.openReaderSettings = openReaderSettings;

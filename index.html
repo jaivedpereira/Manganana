@@ -134,6 +134,37 @@
         <div class="sheet-head"><strong>Capítulos</strong><button class="icon-btn" id="closeSheet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
         <div class="sheet-list" id="chapterSheetList"></div>
       </div>
+      <!-- reader settings sheet -->
+      <div class="sheet" id="readerSettingsSheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head"><strong>Leitor</strong><button class="icon-btn" id="closeReaderSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="sheet-body">
+          <div class="rs-group">
+            <label>Fundo do leitor</label>
+            <div class="rs-chips" id="rsBgChips">
+              <button class="rs-chip" data-bg="auto">Escuro</button>
+              <button class="rs-chip" data-bg="sepia">Sépia</button>
+              <button class="rs-chip" data-bg="light">Claro</button>
+            </div>
+          </div>
+          <div class="rs-group">
+            <label>Brilho <span id="rsBrightVal">100%</span></label>
+            <input type="range" id="rsBright" min="30" max="130" value="100" />
+          </div>
+          <div class="rs-group">
+            <label>Largura da página <span id="rsWidthVal">100%</span></label>
+            <input type="range" id="rsWidth" min="50" max="150" value="100" />
+          </div>
+          <div class="rs-group">
+            <label>Modo webtoon (rolagem contínua)</label>
+            <div class="rs-toggle"><input type="checkbox" id="rsWebtoon" /><span class="rs-toggle-slider"></span></div>
+          </div>
+          <div class="rs-group">
+            <label>Toque nas bordas para navegar</label>
+            <div class="rs-toggle"><input type="checkbox" id="rsTapZones" /><span class="rs-toggle-slider"></span></div>
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 
