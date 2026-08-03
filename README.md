@@ -2,19 +2,21 @@
 
 > *Histórias que viram mundos.*
 
-Site de leitura de mangá em português — catálogo, busca, filtros por gênero, favoritos e tema escuro/claro. Feito com HTML + CSS + JS puro, sem dependências.
+Aplicativo web de leitura de mangá em **português** — catálogo real com a **API do MangaDex**, capas oficiais, informações completas, leitor de capítulos com rolagem vertical, favoritos e histórico.
 
 ## ✨ Funcionalidades
 
-- 🏠 Hero com arte em destaque e estatísticas
-- 🔎 Busca em tempo real
-- 🏷️ Filtros por gênero (Ação, Romance, Fantasia, Comédia, Drama)
-- ❤️ Favoritos salvos no navegador (localStorage)
-- 🌗 Tema escuro/claro
-- 🎲 Botão "Estou com sorte"
-- 📰 Newsletter
-- 🎴 Modal de detalhes do mangá
-- 📱 Layout responsivo (mobile-first)
+- 🏠 **Início** — hero com destaque, mangás em alta, lançamentos recentes e "continue lendo"
+- 🔍 **Explorar** — busca em tempo real + filtros por gênero (tags do MangaDex)
+- 📚 **Biblioteca** — favoritos e histórico de leitura (salvos no navegador)
+- 📖 **Leitor completo** — capítulos em PT-BR com:
+  - Rolagem vertical ou modo página
+  - Qualidade original ou economia de dados
+  - Leitura RTL (direita → esquerda)
+  - Navegação entre capítulos (anterior/próximo + lista)
+  - Progresso salvo automaticamente
+- 🌗 Tema escuro (padrão) e claro
+- 📱 Layout mobile-first (estilo app com bottom nav)
 
 ## 🚀 Como rodar
 
@@ -25,26 +27,33 @@ python -m http.server 4173
 
 Abra `http://localhost:4173`
 
-## 📡 Integração com API
+## 📡 API utilizada
 
-Estrutura pronta para integrar a [MangaDex API](https://api.mangadex.org) — busca por mangás traduzidos para português (`availableTranslatedLanguage[]=pt-br`). Em produção, recomenda-se um backend proxy para cache, CORS e filtragem de conteúdo/licenciamento.
+- **MangaDex API v5** — https://api.mangadex.org
+- Busca de mangás com tradução em pt-br (`availableTranslatedLanguage[]=pt-br`)
+- Capas: `uploads.mangadex.org/covers/{mangaId}/{fileName}`
+- Capítulos: feed do mangá (`/manga/{id}/feed`)
+- Páginas: servidor at-home (`/at-home/server/{chapterId}`)
+
+> Obs: mangás licenciados (sem tradução pt-br no MangaDex) aparecem sem capítulos — é a política de distribuição da plataforma.
 
 ## 📁 Estrutura
 
 ```
 manganana/
-├── index.html   # Página principal
-├── styles.css   # Estilos (tema escuro/roxo, responsivo)
-└── app.js       # Catálogo, busca, favoritos, modal
+├── index.html   # Estrutura do app (SPA mobile-first)
+├── styles.css   # Tema dark/amarelo, bottom nav, leitor
+├── app.js       # API MangaDex, render, leitor, favoritos
+└── vercel.json  # Deploy estático no Vercel
 ```
 
 ## 🛠️ Próximos passos
 
-- [ ] Leitor de capítulos
-- [ ] Login e perfis de usuário
-- [ ] Histórico de leitura
-- [ ] Sincronização entre dispositivos
-- [ ] Painel administrativo
+- [ ] Login e sincronização de favoritos na nuvem
+- [ ] Leitura offline (PWA)
+- [ ] Social: seguir amigos e ver o que estão lendo
+- [ ] Chat entre leitores
+- [ ] Notificações de novos capítulos
 
 ---
 
