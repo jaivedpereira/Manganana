@@ -13,30 +13,28 @@ export default async function handler(req, res) {
   if (!url || typeof url !== 'string') {
     return res.status(400).json({ error: 'Informe ?url=...' });
   }
-  // só permite domínios do MangaDex e AniList (segurança)
+  // só permite domínios de provedores suportados (segurança)
   let host;
   try { host = new URL(url).hostname; } catch { host = ''; }
-  const ok = host === 'uploads.mangadex.org'
-    || host.endsWith('.mangadex.org')
-    || host === 'mangadex.network'
-    || host.endsWith('.mangadex.network')
-    || host === 'mangadex.tv'
-    || host.endsWith('.mangadex.tv')
-    || host === 's4.anilist.co'
-    || host.endsWith('.anilist.co')
-    || host === 'media.kitsu.app'
-    || host.endsWith('.kitsu.app')
-    || host.endsWith('.kitsu.io');
-  if (!ok) {
+  const isMD = host === 'uploads.mangadex.org' || host.endsWith('.mangadex.org')
+    || host === 'mangadex.network' || host.endsWith('.mangadex.network')
+    || host === 'mangadex.tv' || host.endsWith('.mangadex.tv');
+  const isAni = host === 's4.anilist.co' || host.endsWith('.anilist.co')
+    || host === 'media.kitsu.app' || host.endsWith('.kitsu.app') || host.endsWith('.kitsu.io');
+  const isPill = host === 'cdn.readdetectiveconan.com' || host.endsWith('.readdetectiveconan.com')
+    || host.endsWith('.mangapill.com');
+  if (!isMD && !isAni && !isPill) {
     return res.status(403).json({ error: 'Domínio não permitido' });
   }
+  // cada provedor tem exigência própria de Referer
+  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : 'https://mangadex.org/');
 
   try {
     const r = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36',
         'Accept': 'image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8',
-        'Referer': 'https://anilist.co/',
+        'Referer': referer,
         'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
       },
     });

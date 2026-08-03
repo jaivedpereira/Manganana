@@ -50,8 +50,12 @@ const state = {
   readCount: load('readCount', {}), // {mangaId: n páginas lidas}
   explore: { query: '', genre: 'all', offset: 0, loading: false },
   detail: null,          // mangá atual
-  chapters: [],          // capítulos do mangá atual
-  reader: null,          // {manga, chapter, pages, baseUrl, hash, idx}
+  chapters: [],          // capítulos do mangá atual (provedor/idioma ativo)
+  allChapters: {},       // cache: {lang: [capítulos]} por idioma
+  lang: 'pt-br',         // idioma ativo
+  provider: 'mangadex',  // provedor ativo: mangadex | mangapill
+  pill: null,            // dados do MangaPill (quando disponível)
+  reader: null,          // {manga, chapter, pages, baseUrl, hash, idx, provider}
   genres: [],            // tags do MangaDex
 };
 
@@ -105,6 +109,121 @@ function anilistStatusPt(status) {
     CANCELLED: 'Cancelado', HIATUS: 'Hiato',
   };
   return map[status] || status || '';
+}
+
+/* ---------- MangaPill (provedor secundário) ---------- */
+const PILL_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'https://mangapill.com'
+  : '/api/pill';
+
+async function pillSearch(q) {
+  const url = PILL_URL.startsWith('http')
+    ? `${PILL_URL}/search?q=${encodeURIComponent(q)}`
+    : `${PILL_URL}?type=search&q=${encodeURIComponent(q)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('MangaPill ' + r.status);
+  const d = await r.json();
+  return d.data || [];
+}
+
+async function pillManga(slug) {
+  const url = PILL_URL.startsWith('http')
+    ? `${PILL_URL}/manga/${slug}`
+    : `${PILL_URL}?type=manga&slug=${encodeURIComponent(slug)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('MangaPill ' + r.status);
+  return r.json();
+}
+
+async function pillChapter(slug) {
+  const url = PILL_URL.startsWith('http')
+    ? `${PILL_URL}/chapters/${slug}`
+    : `${PILL_URL}?type=chapter&slug=${encodeURIComponent(slug)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('MangaPill ' + r.status);
+  return r.json();
+}
+
+/* ---------- idiomas ---------- */
+const LANG_NAMES = {
+  'pt-br': 'Português (BR)', 'pt': 'Português', 'en': 'Inglês', 'es-la': 'Espanhol (LATAM)',
+  'es': 'Espanhol', 'fr': 'Francês', 'ja': 'Japonês', 'ko': 'Coreano', 'zh': 'Chinês',
+  'zh-hk': 'Chinês (HK)', 'ru': 'Russo', 'de': 'Alemão', 'it': 'Italiano', 'ar': 'Árabe',
+  'id': 'Indonésio', 'th': 'Tailandês', 'vi': 'Vietnamita', 'uk': 'Ucraniano', 'tr': 'Turco',
+  'fa': 'Persa', 'pl': 'Polonês', 'hi': 'Hindi', 'ms': 'Malaio', 'fil': 'Filipino',
+};
+function langName(code) { return LANG_NAMES[code] || code; }
+
+// lista os idiomas disponíveis para o mangá (feed do MangaDex, 1ª página)
+async function mangaLanguages(mangaId) {
+  const p = new URLSearchParams();
+  p.set('limit', 100);
+  p.set('offset', 0);
+  p.set('order[chapter]', 'asc');
+  p.append('contentRating[]', 'safe');
+  p.append('contentRating[]', 'suggestive');
+  const data = await mdFetch(`/manga/${mangaId}/feed?` + p.toString());
+  const counts = {};
+  for (const c of data.data ?? []) {
+    const l = c.attributes.translatedLanguage;
+    counts[l] = (counts[l] || 0) + 1;
+  }
+  // ordena: pt-br primeiro, depois por quantidade
+  return Object.entries(counts)
+    .sort((a, b) => {
+      const pa = a[0] === 'pt-br' ? -2 : (a[0] === 'en' ? -1 : 0);
+      const pb = b[0] === 'pt-br' ? -2 : (b[0] === 'en' ? -1 : 0);
+      return pb - pa || b[1] - a[1];
+    })
+    .map(([code, count]) => ({ code, count }));
+}
+
+// busca capítulos do MangaDex num idioma específico
+async function getChaptersLang(mangaId, lang) {
+  const out = [];
+  let offset = 0;
+  for (;;) {
+    const p = new URLSearchParams();
+    p.set('limit', 500);
+    p.set('offset', offset);
+    p.set('translatedLanguage[]', lang);
+    p.set('order[chapter]', 'asc');
+    p.append('contentRating[]', 'safe');
+    p.append('contentRating[]', 'suggestive');
+    p.append('includes[]', 'scanlation_group');
+    const data = await mdFetch(`/manga/${mangaId}/feed?` + p.toString());
+    const batch = data.data ?? [];
+    out.push(...batch);
+    if (batch.length < 500 || !data.total || out.length >= data.total) break;
+    offset += 500;
+  }
+  const seen = new Set();
+  return out.filter((c) => {
+    const n = c.attributes.chapter ?? '';
+    if (n === '' || seen.has(n)) return false;
+    seen.add(n);
+    return true;
+  }).sort((a, b) => (parseFloat(a.attributes.chapter) || 0) - (parseFloat(b.attributes.chapter) || 0));
+}
+
+// tenta achar o mesmo mangá no MangaPill pelo título
+async function findOnPill(title) {
+  try {
+    const res = await pillSearch(title.split(':')[0].trim().slice(0, 40));
+    if (!res.length) return null;
+    const t = title.toLowerCase();
+    // tenta casar por similaridade simples
+    const words = t.split(/\s+/).filter((w) => w.length > 3);
+    const scored = res
+      .map((m) => {
+        const mt = m.title.toLowerCase();
+        let score = 0;
+        for (const w of words) if (mt.includes(w)) score++;
+        return { ...m, score };
+      })
+      .sort((a, b) => b.score - a.score);
+    return scored[0] && scored[0].score > 0 ? scored[0] : null;
+  } catch { return null; }
 }
 
 /* ---------- API MangaDex ---------- */
@@ -473,17 +592,34 @@ async function openDetail(id) {
   try {
     const m = await getManga(id);
     state.detail = m;
-    state.chapters = await getChapters(id);
+    state.lang = 'pt-br';
+    state.provider = 'mangadex';
+    state.allChapters = {};
+    state.pill = null;
     // busca dados premium (AniList) em paralelo — não bloqueia se falhar
     let premium = null;
     try { premium = await fetchAniList(mangaTitle(m)); } catch {}
-    renderDetail(m, premium);
+    // busca idiomas disponíveis + capítulos pt-br em paralelo
+    let langs = [{ code: 'pt-br', count: 0 }];
+    let chapters = [];
+    try {
+      const [l, c] = await Promise.all([
+        mangaLanguages(id),
+        getChaptersLang(id, 'pt-br'),
+      ]);
+      if (l.length) langs = l;
+      chapters = c;
+    } catch { try { chapters = await getChapters(id); } catch {} }
+    state.chapters = chapters;
+    // tenta achar no MangaPill (provedor secundário)
+    try { state.pill = await findOnPill(mangaTitle(m)); } catch {}
+    renderDetail(m, premium, langs);
   } catch (e) {
     $('#detailContent').innerHTML = `<div class="empty"><p>Erro ao carregar: ${esc(e.message)}</p></div>`;
   }
 }
 
-function renderDetail(m, premium) {
+function renderDetail(m, premium, langs) {
   const faved = state.favs.some((f) => f.id === m.id);
   $('#detailTitleNav').textContent = mangaTitle(m);
   $('#btnDetailFav').classList.toggle('faved', faved);
@@ -492,6 +628,9 @@ function renderDetail(m, premium) {
   const chs = state.chapters;
   const lastRead = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === m.id);
   const hasRead = !!lastRead;
+  const pill = state.pill;
+  const provider = state.provider;
+  const lang = state.lang;
 
   // dados premium (AniList)
   const score = anilistScore(premium);
@@ -502,6 +641,15 @@ function renderDetail(m, premium) {
   const totalCaps = premium?.chapters || '';
   const anigenres = premium?.genres || [];
   const chars = (premium?.characters?.nodes || []).filter((c) => c.image?.large);
+
+  // chips de idioma (MangaDex) + opção MangaPill
+  const langChips = (langs || []).map((l) => `
+    <button class="chip ${provider === 'mangadex' && lang === l.code ? 'active' : ''}"
+      onclick="switchLang('${l.code}')">${esc(langName(l.code))} (${l.count})</button>`).join('');
+
+  const providerInfo = provider === 'mangapill'
+    ? `<div class="provider-banner">📖 Provedor: <b>MangaPill</b> — capítulos em inglês</div>`
+    : '';
 
   $('#detailContent').innerHTML = `
     <div class="detail-hero">
@@ -556,8 +704,10 @@ function renderDetail(m, premium) {
       </div>` : ''}
       <div class="chapter-head">
         <h2>Capítulos</h2>
-        <span>${chs.length} em pt-br</span>
+        <span>${chs.length} disponíveis</span>
       </div>
+      <div class="lang-row" id="langRow">${langChips}${pill ? `<button class="chip ${provider === 'mangapill' ? 'active' : ''}" onclick="switchProvider('mangapill')">📖 MangaPill</button>` : ''}</div>
+      ${providerInfo}
       <div class="chapter-list">
         ${chs.length ? chs.map((c) => chapterItemHTML(c, lastRead)).join('') : '<p class="muted" style="font-size:12px">Nenhum capítulo em português ainda.</p>'}
       </div>
@@ -633,6 +783,58 @@ function resumeRead() {
   else toast('Sem capítulos disponíveis');
 }
 
+// troca o idioma dos capítulos (MangaDex)
+async function switchLang(code) {
+  if (!state.detail) return;
+  state.lang = code;
+  state.provider = 'mangadex';
+  const grid = $('#detailContent');
+  toast('Carregando ' + langName(code) + '…');
+  try {
+    // usa cache se já carregou esse idioma
+    let chs = state.allChapters[code];
+    if (!chs) {
+      chs = await getChaptersLang(state.detail.id, code);
+      state.allChapters[code] = chs;
+    }
+    state.chapters = chs;
+    renderDetail(state.detail, null, await mangaLanguages(state.detail.id));
+    if (grid) grid.scrollTop = grid.scrollHeight;
+  } catch (e) {
+    toast('Erro: ' + e.message);
+  }
+}
+
+// troca de provedor (MangaDex <-> MangaPill)
+async function switchProvider(name) {
+  if (!state.detail) return;
+  state.provider = name;
+  const grid = $('#detailContent');
+  if (name === 'mangapill') {
+    if (!state.pill) { toast('Não encontrado no MangaPill'); return; }
+    toast('Carregando MangaPill…');
+    try {
+      const data = await pillManga(state.pill.slug);
+      state.chapters = (data.chapters || []).map((c, i) => ({
+        id: 'pill_' + c.slug,
+        _provider: 'mangapill',
+        _pillSlug: c.slug,
+        attributes: {
+          chapter: String(i + 1),
+          title: c.title,
+          publishAt: null,
+          translatedLanguage: 'en',
+        },
+      }));
+      renderDetail(state.detail, null, [{ code: 'en', count: state.chapters.length }]);
+      if (grid) grid.scrollTop = grid.scrollHeight;
+    } catch (e) { toast('Erro MangaPill: ' + e.message); }
+  } else {
+    // volta pro MangaDex no idioma atual
+    switchLang(state.lang);
+  }
+}
+
 /* ---------- leitor ---------- */
 async function openChapter(chapterId, startPage = 0) {
   showView('view-reader');
@@ -641,15 +843,32 @@ async function openChapter(chapterId, startPage = 0) {
   body.innerHTML = '<div class="reader-loading"><div class="spinner"></div>Carregando capítulo…</div>';
   body.scrollTop = 0;
   try {
-    const srv = await getChapterPages(chapterId);
     const ch = state.chapters.find((c) => c.id === chapterId);
     if (!ch) throw new Error('capítulo não encontrado');
+
+    // provedor MangaPill: busca as páginas via scraping
+    if (ch._provider === 'mangapill') {
+      const data = await pillChapter(ch._pillSlug);
+      if (!data.pages || !data.pages.length) throw new Error('sem páginas');
+      const idx = Math.max(0, Math.min(startPage | 0, data.pages.length - 1));
+      state.reader = {
+        manga: state.detail, chapter: ch, pages: data.pages, baseUrl: '', hash: '', idx,
+        provider: 'mangapill',
+      };
+      renderReader();
+      if (idx > 0) restorePage(idx);
+      return;
+    }
+
+    // provedor MangaDex: at-home server
+    const srv = await getChapterPages(chapterId);
     const base = srv.baseUrl;
     const hash = srv.chapter.hash;
     const files = state.settings.quality === 'dataSaver' ? srv.chapter.dataSaver : srv.chapter.data;
     const idx = Math.max(0, Math.min(startPage | 0, files.length - 1));
     state.reader = {
       manga: state.detail, chapter: ch, pages: files, baseUrl: base, hash, idx,
+      provider: 'mangadex',
     };
     renderReader();
     if (idx > 0) restorePage(idx);
@@ -679,10 +898,12 @@ function renderReader() {
   $('#readerMangaName').textContent = mangaTitle(r.manga);
   $('#readerChapterName').textContent = chapterNum(r.chapter) + (chapterTitle(r.chapter) ? ' — ' + chapterTitle(r.chapter) : '');
   body.classList.toggle('rtl', state.settings.rtl);
-  body.innerHTML = r.pages.map((p) =>
-    `<img class="page-img ${mode}" loading="lazy"
-        src="${px(r.baseUrl + '/data/' + r.hash + '/' + p)}"
-        alt="página" />`).join('') +
+  // MangaPill: páginas já são URLs completas; MangaDex: baseUrl/hash/file
+  const urls = r.provider === 'mangapill'
+    ? r.pages.map((p) => px(p))
+    : r.pages.map((p) => px(r.baseUrl + '/data/' + r.hash + '/' + p));
+  body.innerHTML = urls.map((src) =>
+    `<img class="page-img ${mode}" loading="lazy" src="${src}" alt="página" />`).join('') +
     `<div style="height:40px"></div>`;
   updateReaderNav();
   markProgress();
@@ -897,3 +1118,5 @@ window.pickChapter = pickChapter;
 window.continueReading = continueReading;
 window.openCharModal = openCharModal;
 window.closeCharModal = closeCharModal;
+window.switchLang = switchLang;
+window.switchProvider = switchProvider;
