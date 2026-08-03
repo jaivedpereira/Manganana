@@ -22,7 +22,8 @@ Aplicativo web de leitura de mangá em **português** — catálogo real com a *
 - ⚡ Carregamento instantâneo via service worker
 - 🎛️ **Leitor turbinado** — fundo (escuro/sépia/claro), brilho, largura da página, zoom por duplo toque, modo webtoon contínuo, toque nas bordas
 - 🧹 **Qualidade de vida** — histórico de busca recente, botão "ir para página", marcar capítulo como lido, textos revisados em PT-BR
-- 🎠 **Home turbinada** — banner rotativo com **10 destaques** (auto-rotação, swipe e indicadores), botões "Ver tudo" funcionais com paginação, 5 categorias por gênero (Ação, Romance, Fantasia, Terror, Comédia) com **cards grandes estilo home em 2 colunas**
+- 🎠 **Home turbinada** — banner rotativo com **5 destaques** (auto-rotação, swipe e indicadores), botões "Ver tudo" funcionais com paginação, 5 categorias por gênero (Ação, Romance, Fantasia, Terror, Comédia) com **cards grandes estilo home em 2 colunas**
+- 🔄 **Atualização automática** — cache do service worker inteligente (HTML sempre novo + assets versionados), o app se atualiza sozinho sem precisar limpar cache
 
 ## 🚀 Como rodar
 
