@@ -102,16 +102,16 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // assets (styles.css, app.js, ícones): cache-first.
-  // Como o HTML novo referencia ?v= novo, o cache antigo não casa → busca na rede.
+  // assets (styles.css, app.js, ícones): NETWORK-FIRST — sempre baixa a versão
+  // mais nova do servidor quando online. Só usa o cache se offline.
+  // Assim nenhum navegador fica preso em versão antiga.
   e.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req).then((res) => {
+    fetch(req)
+      .then((res) => {
         const clone = res.clone();
         caches.open(CORE_CACHE).then((c) => c.put(req, clone)).catch(() => {});
         return res;
-      });
-    })
+      })
+      .catch(() => caches.match(req).then((c) => c || Response.error()))
   );
 });

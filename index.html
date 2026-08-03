@@ -21,6 +21,18 @@
   <script>
     // versão do app — usada no cache busting e no service worker
     window.APP_VERSION = '20260803b';
+    // KILL SWITCH de cache: se houver caches de versões antigas, limpa e recarrega.
+    // Isso quebra o ciclo de "navegador preso na versão antiga" de uma vez.
+    (function () {
+      if (!('caches' in window)) return;
+      caches.keys().then(function (keys) {
+        var stale = keys.filter(function (k) { return k.indexOf('v1.4.0') === -1; });
+        if (stale.length) {
+          Promise.all(stale.map(function (k) { return caches.delete(k); }))
+            .then(function () { window.location.reload(); });
+        }
+      }).catch(function () {});
+    })();
   </script>
   <script src="app.js?v=20260803b" defer></script>
 </head>
