@@ -968,7 +968,7 @@ function switchTab(tab, keepScroll = true) {
   if (tab === 'explore' && !$('#exploreGrid').children.length) loadExplore();
   if (tab === 'home') renderContinue();
   if (tab === 'library') renderLibrary();
-  if (tab === 'profile') renderProfile();
+  if (tab === 'profile') { renderProfile(); renderDownloads(); }
 }
 
 function renderProfile() {
@@ -1017,7 +1017,7 @@ function bindGlobal() {
   $('#btnProfile').addEventListener('click', () => switchTab('profile'));
   $('#chapterListBtn').addEventListener('click', () => { renderChapterSheet(); openSheet('#chapterSheet'); });
   $('#closeSheet').addEventListener('click', closeSheets);
-  $('#prevChapter').addEventListener('click', prevChapterNav);
+  $('#btnDownloadChapter').addEventListener('click', downloadChapter);
   $('#nextChapter').addEventListener('click', nextChapterNav);
   $('#btnClearHistory').addEventListener('click', () => {
     state.history = []; store('history', []); store('readCount', {});
@@ -1099,6 +1099,154 @@ function bindGlobal() {
   history.replaceState({}, '');
 }
 
+/* ---------- PWA: registro + instalação ---------- */
+let deferredPrompt = null;
+let swReady = false;
+
+function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  const doRegister = () => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      swReady = true;
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (nw) nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            toast('Nova versão disponível — recarregue para atualizar');
+          }
+        });
+      });
+    }).catch(() => {});
+  };
+  if (document.readyState === 'complete') doRegister();
+  else window.addEventListener('load', doRegister);
+  // captura o evento de instalação (beforeinstallprompt)
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallBtn();
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    hideInstallBtn();
+    toast('Manganana instalado! 🎉');
+  });
+}
+
+function showInstallBtn() {
+  let btn = $('#installBtn');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'installBtn';
+    btn.className = 'install-btn';
+    btn.innerHTML = '⬇ Instalar app';
+    btn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') hideInstallBtn();
+      deferredPrompt = null;
+    });
+    document.body.appendChild(btn);
+  }
+  btn.classList.add('show');
+}
+
+function hideInstallBtn() {
+  const btn = $('#installBtn');
+  if (btn) btn.classList.remove('show');
+}
+
+/* ---------- download de capítulos (offline) ---------- */
+function downloadsList() { return load('downloads', []); } // [{id, mangaId, manga, chapter, urls, ts}]
+
+async function downloadChapter() {
+  const r = state.reader;
+  if (!r) return;
+  if (!('serviceWorker' in navigator)) { toast('Offline não disponível neste navegador'); return; }
+  // px() resolve certo em cada ambiente: localhost usa URL direta,
+  // produção usa /api/img (que tem o UA correto p/ MangaDex)
+  const raw = r.provider === 'mangapill'
+    ? r.pages
+    : r.pages.map((p) => r.baseUrl + '/data/' + r.hash + '/' + p);
+  const urls = raw.map((u) => px(u));
+
+  const existing = downloadsList().find((d) => d.id === r.chapter.id);
+  if (existing) { toast('Capítulo já baixado'); return; }
+
+  const btn = $('#btnDownloadChapter');
+  if (btn) { btn.classList.add('loading'); btn.style.pointerEvents = 'none'; }
+  toast('Baixando ' + urls.length + ' páginas…');
+
+  try {
+    // o SW cacheia automaticamente toda imagem /api/img que passa por ele.
+    // Em produção px() = /api/img?url=... (same-origin, funciona);
+    // em localhost px() = URL direta (fetch cross-origin pode falhar por CORS — só dev).
+    let done = 0, failed = 0;
+    const fetcher = (u) => Promise.race([
+      fetch(u),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000)),
+    ]);
+    // baixa em lotes de 5 p/ não estourar conexões
+    for (let i = 0; i < urls.length; i += 5) {
+      const batch = urls.slice(i, i + 5);
+      const results = await Promise.allSettled(batch.map(fetcher));
+      results.forEach((x) => { if (x.status === 'fulfilled' && x.value.ok) done++; else failed++; });
+    }
+    if (done === 0) throw new Error('todas as páginas falharam (' + failed + ')');
+
+    const dl = {
+      id: r.chapter.id,
+      mangaId: r.manga.id,
+      manga: mangaTitle(r.manga),
+      chapter: chapterNum(r.chapter),
+      urls,
+      ts: Date.now(),
+    };
+    const list = downloadsList().filter((d) => d.id !== dl.id);
+    list.unshift(dl);
+    store('downloads', list.slice(0, 40));
+    toast('Capítulo baixado! 📥 ' + done + ' páginas p/ leitura offline');
+    if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
+  } catch (e) {
+    toast('Falha ao baixar: ' + e.message);
+    if (btn) btn.classList.remove('loading');
+  }
+  if (btn) btn.style.pointerEvents = '';
+}
+
+async function deleteDownload(id) {
+  const list = downloadsList();
+  const dl = list.find((d) => d.id === id);
+  if (!dl) return;
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'DELETE_CHAPTER', urls: dl.urls });
+  }
+  store('downloads', list.filter((d) => d.id !== id));
+  toast('Download removido');
+}
+
+// renderiza a lista de downloads na aba Perfil
+function renderDownloads() {
+  const wrap = $('#downloadsWrap');
+  if (!wrap) return;
+  const list = downloadsList();
+  if (!list.length) {
+    wrap.innerHTML = '<div class="empty"><p>Nenhum capítulo baixado ainda.<br>Abra um capítulo e toque em ⬇ para ler offline.</p></div>';
+    return;
+  }
+  wrap.innerHTML = list.map((d) => `
+    <div class="dl-item">
+      <div class="dl-info">
+        <strong>${esc(d.manga)}</strong>
+        <small>${esc(d.chapter)} • ${d.urls.length} páginas</small>
+      </div>
+      <button class="dl-del" onclick="deleteDownload('${d.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>`).join('');
+}
+
 /* ---------- boot ---------- */
 (async function boot() {
   bindGlobal();
@@ -1106,6 +1254,7 @@ function bindGlobal() {
   await renderHome();
   renderLibrary();
   renderProfile();
+  registerSW();
   setTimeout(() => $('#splash').classList.add('hidden'), 700);
 })();
 
@@ -1120,3 +1269,5 @@ window.openCharModal = openCharModal;
 window.closeCharModal = closeCharModal;
 window.switchLang = switchLang;
 window.switchProvider = switchProvider;
+window.downloadChapter = downloadChapter;
+window.deleteDownload = deleteDownload;

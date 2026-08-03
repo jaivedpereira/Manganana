@@ -118,6 +118,20 @@ svg{width:22px;height:22px;flex:none}
 .provider-banner{font-size:11px;color:var(--accent);background:var(--accent-soft);border:1px solid #2a2344;border-radius:10px;padding:9px 12px;margin:2px 0 10px}
 .provider-banner b{font-weight:800}
 
+/* ===== PWA: botão instalar + downloads ===== */
+.install-btn{position:fixed;left:50%;bottom:calc(var(--nav-h) + 40px + var(--safe-bottom));transform:translateX(-50%) translateY(80px);background:var(--accent);color:#141300;font-size:13px;font-weight:800;padding:13px 24px;border-radius:24px;z-index:90;box-shadow:0 10px 30px rgba(255,214,10,.35);opacity:0;transition:.35s;pointer-events:none}
+.install-btn.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+#btnDownloadChapter{position:relative}
+#btnDownloadChapter.loading{color:var(--accent);animation:pulse 1s infinite}
+#btnDownloadChapter.done{color:var(--accent)}
+@keyframes pulse{50%{opacity:.4}}
+.dl-item{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.dl-info{flex:1;min-width:0}
+.dl-info strong{font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dl-info small{font-size:10.5px;color:var(--muted)}
+.dl-del{width:34px;height:34px;border-radius:10px;background:var(--panel2);color:#ff6b6b;display:grid;place-items:center;flex:none}
+.dl-del svg{width:16px;height:16px}
+
 /* ===== GRID ===== */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .grid .manga-card{width:auto}

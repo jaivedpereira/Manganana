@@ -6,6 +6,12 @@
   <meta name="theme-color" content="#070a12" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Manganana" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Leia mangás em português: catálogo, capítulos, favoritos e leitura offline." />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <meta name="msapplication-TileColor" content="#070a12" />
   <title>Manganana — leia mangá em português</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ffd60a'/><text x='50' y='72' font-size='62' text-anchor='middle' font-family='sans-serif' font-weight='bold' fill='%23070a12'>M</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -93,6 +99,8 @@
         <div class="menu-list">
           <button class="menu-item" id="btnClearHistory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Limpar histórico</button>
         </div>
+        <div class="section-head" style="margin-top:22px"><h2>Downloads ⬇</h2></div>
+        <div id="downloadsWrap"></div>
       </div>
     </section>
 
@@ -111,6 +119,7 @@
       <header class="reader-top" id="readerTop">
         <button class="icon-btn" id="btnReaderBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
         <div class="reader-title"><span id="readerMangaName">—</span><small id="readerChapterName">—</small></div>
+        <button class="icon-btn" id="btnDownloadChapter" title="Baixar capítulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
         <button class="icon-btn" id="btnReaderSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></button>
       </header>
       <div class="reader-body" id="readerBody"></div>
