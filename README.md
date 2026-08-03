@@ -20,6 +20,7 @@ Aplicativo web de leitura de mangá em **português** — catálogo real com a *
 - 📲 **PWA instalável** — instala no celular como app nativo (ícone, tela cheia)
 - ⬇️ **Downloads offline** — baixe capítulos e leia sem internet
 - ⚡ Carregamento instantâneo via service worker
+- 🎛️ **Leitor turbinado** — fundo (escuro/sépia/claro), brilho, largura da página, zoom por duplo toque, modo webtoon contínuo, toque nas bordas
 
 ## 🚀 Como rodar
 
