@@ -210,6 +210,32 @@ function cardHTML(m, faved) {
   </article>`;
 }
 
+// card de lista (usado no Explorar) — capa pequena + info ao lado
+function rowHTML(m, faved) {
+  const title = mangaTitle(m);
+  const cover = mangaCover(m);
+  const year = mangaYear(m);
+  const tags = mangaTags(m);
+  return `
+  <article class="manga-row" data-id="${m.id}" onclick="openDetail('${m.id}')">
+    <div class="rcover">
+      ${coverImg(cover, title)}
+      ${faved ? '<span class="rtag">♥</span>' : ''}
+    </div>
+    <div class="rinfo">
+      <h3>${esc(title)}</h3>
+      <div class="rsub">
+        ${year ? `<span>${year}</span>` : ''}
+        ${mangaAuthors(m) ? `<span>✍ ${esc(mangaAuthors(m))}</span>` : ''}
+      </div>
+      ${tags.length ? `<div class="rtags">${tags.slice(0, 3).map((t) => `<span class="rtag-chip">${esc(t)}</span>`).join('')}</div>` : ''}
+    </div>
+    <div class="rarrow">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </div>
+  </article>`;
+}
+
 /* ---------- render: home ---------- */
 async function renderHome() {
   const c = $('#homeContent');
@@ -323,7 +349,7 @@ async function loadExplore() {
       grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>Nenhum mangá encontrado.</p></div>';
       loadBtn.style.display = 'none';
     } else {
-      grid.insertAdjacentHTML('beforeend', list.map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join(''));
+      grid.insertAdjacentHTML('beforeend', list.map((m) => rowHTML(m, state.favs.some((f) => f.id === m.id))).join(''));
       state.explore.offset += list.length;
       loadBtn.style.display = list.length < 24 ? 'none' : 'block';
       loadBtn.textContent = 'Carregar mais ↓';
@@ -569,6 +595,7 @@ function switchTab(tab, keepScroll = true) {
   $$('.view').forEach((v) => v.classList.remove('active'));
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   if (tab) $('#view-' + tab).classList.add('active');
+  if (tab === 'explore' && !$('#exploreGrid').children.length) loadExplore();
   if (tab === 'library') renderLibrary();
   if (tab === 'profile') renderProfile();
 }
