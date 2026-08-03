@@ -43,8 +43,10 @@ svg{width:22px;height:22px;flex:none}
 .avatar-btn{background:linear-gradient(135deg,#3d4a75,#232c4a)}
 .avatar-btn svg{width:20px;height:20px;color:#cdd6f2}
 
-/* ===== HERO ===== */
-.hero-card{height:190px;border-radius:var(--radius);overflow:hidden;position:relative;margin-bottom:22px;background:var(--panel)}
+/* ===== HERO (carrossel) ===== */
+.hero-skeleton{position:relative;margin-bottom:22px}
+.hero-track{display:flex;overflow:hidden;border-radius:var(--radius);transition:transform .5s ease}
+.hero-card{height:190px;border-radius:var(--radius);overflow:hidden;position:relative;background:var(--panel);flex:0 0 100%;min-width:100%}
 .hero-card img{width:100%;height:100%;object-fit:cover}
 .hero-card .hero-shade{position:absolute;inset:0;background:linear-gradient(transparent 30%,#070a12f2 92%)}
 .hero-card .hero-body{position:absolute;left:16px;right:16px;bottom:14px}
@@ -53,6 +55,10 @@ svg{width:22px;height:22px;flex:none}
 .hero-card p{font-size:11px;color:#b9c2d8;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .hero-card .hero-cta{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:var(--accent);color:#141300;font-size:11px;font-weight:700;padding:8px 14px;border-radius:20px}
 .hero-card .hero-cta svg{width:14px;height:14px}
+.hero-dots{display:flex;gap:5px;justify-content:center;margin-top:9px}
+.hero-dots .dot{width:6px;height:6px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);padding:0;transition:.25s}
+.hero-dots .dot.active{width:20px;background:var(--accent);border-color:var(--accent)}
+.seeall-count{font-size:10.5px;color:var(--muted);font-weight:700}
 
 /* ===== SECTIONS ===== */
 .section-head{display:flex;align-items:center;justify-content:space-between;margin:20px 0 12px}
@@ -119,8 +125,8 @@ svg{width:22px;height:22px;flex:none}
 .provider-banner b{font-weight:800}
 
 /* ===== PWA: botão instalar + downloads ===== */
-.install-btn{position:fixed;left:50%;bottom:calc(var(--nav-h) + 40px + var(--safe-bottom));transform:translateX(-50%) translateY(80px);background:var(--accent);color:#141300;font-size:13px;font-weight:800;padding:13px 24px;border-radius:24px;z-index:90;box-shadow:0 10px 30px rgba(255,214,10,.35);opacity:0;transition:.35s;pointer-events:none}
-.install-btn.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+.install-btn{position:fixed;right:14px;bottom:calc(var(--nav-h) + 30px + var(--safe-bottom));transform:translateY(80px);background:var(--accent);color:#141300;font-size:12px;font-weight:800;padding:11px 18px;border-radius:22px;z-index:90;box-shadow:0 10px 30px rgba(255,214,10,.35);opacity:0;transition:.35s;pointer-events:none}
+.install-btn.show{opacity:1;transform:translateY(0);pointer-events:auto}
 #btnDownloadChapter{position:relative}
 #btnDownloadChapter.loading{color:var(--accent);animation:pulse 1s infinite}
 #btnDownloadChapter.done{color:var(--accent)}

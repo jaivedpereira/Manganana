@@ -410,33 +410,109 @@ function rowHTML(m, faved) {
 }
 
 /* ---------- render: home ---------- */
+// nomes de gêneros (inglês) para buscar por categoria
+const CATS = {
+  trending: { title: 'Em alta 🔥', api: { order: 'followedCount' } },
+  recent: { title: 'Recentes 📚', api: { order: 'latestUploadedChapter' } },
+  action: { title: 'Ação ⚔️', genre: 'Action' },
+  romance: { title: 'Romance 💕', genre: 'Romance' },
+  fantasy: { title: 'Fantasia 🐉', genre: 'Fantasy' },
+  horror: { title: 'Terror 👻', genre: 'Horror' },
+  comedy: { title: 'Comédia 😂', genre: 'Comedy' },
+};
+
+// busca mangás por categoria (gênero ou ordenação)
+async function fetchCat(catKey, limit = 12, offset = 0) {
+  const cat = CATS[catKey];
+  if (!cat) return [];
+  const params = { limit, offset };
+  if (cat.api) {
+    Object.assign(params, cat.api);
+    return searchManga(params);
+  }
+  // por gênero: acha o id da tag
+  const g = state.genres.find((x) => x.name.toLowerCase() === cat.genre.toLowerCase());
+  if (!g) return [];
+  return searchManga({ limit, offset, genre: g.id });
+}
+
+let heroTimer = null;
+let heroIdx = 0;
+let heroList = [];
+
+// carrossel do hero com rotação automática
+function renderHero() {
+  const track = $('#heroTrack');
+  const dots = $('#heroDots');
+  const sk = $('#heroSkeleton');
+  if (!heroList.length) { sk.style.display = 'none'; return; }
+  sk.className = 'hero-skeleton';
+  sk.style.display = '';
+  track.innerHTML = heroList.map((m) => {
+    const t = mangaTitle(m);
+    const d = mangaDesc(m).slice(0, 110);
+    const full = mangaCoverFull(m);
+    return `
+    <div class="hero-card slide">
+      <img src="${full}" alt="${esc(t)}" loading="lazy" />
+      <div class="hero-shade"></div>
+      <div class="hero-body">
+        <div class="hero-tag">✦ Em destaque</div>
+        <h1>${esc(t)}</h1>
+        <p>${esc(d)}</p>
+        <button class="hero-cta" onclick="openDetail('${m.id}')">Ver detalhes
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+  dots.innerHTML = heroList.map((_, i) => `<button class="dot ${i === 0 ? 'active' : ''}" onclick="heroGo(${i})"></button>`).join('');
+  heroIdx = 0;
+  startHeroTimer();
+}
+
+function heroGo(i) {
+  heroIdx = i;
+  const track = $('#heroTrack');
+  if (track) track.style.transform = `translateX(-${i * 100}%)`;
+  $$('#heroDots .dot').forEach((d, j) => d.classList.toggle('active', j === i));
+  startHeroTimer();
+}
+
+function startHeroTimer() {
+  clearInterval(heroTimer);
+  if (heroList.length < 2) return;
+  heroTimer = setInterval(() => {
+    heroGo((heroIdx + 1) % heroList.length);
+  }, 5000);
+}
+
+// swipe no hero
+function initHeroSwipe() {
+  const sk = $('#heroSkeleton');
+  if (!sk || sk.dataset.swipe) return;
+  sk.dataset.swipe = '1';
+  let x0 = null;
+  sk.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+  sk.addEventListener('touchend', (e) => {
+    if (x0 == null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 50) {
+      if (dx < 0) heroGo((heroIdx + 1) % Math.max(1, heroList.length));
+      else heroGo((heroIdx - 1 + heroList.length) % Math.max(1, heroList.length));
+    }
+    x0 = null;
+  }, { passive: true });
+}
+
 async function renderHome() {
   const c = $('#homeContent');
-  // hero
+  // hero (carrossel com os 5 mais seguidos)
   try {
-    const heroList = await searchManga({ limit: 1, order: 'followedCount' });
-    const hero = heroList[0];
-    if (hero) {
-      const t = mangaTitle(hero);
-      const d = mangaDesc(hero).slice(0, 120);
-      const full = mangaCoverFull(hero);
-      const heroEl = document.getElementById('heroSkeleton');
-      heroEl.className = 'hero-card';
-      heroEl.innerHTML = `
-        <img src="${full}" alt="${esc(t)}" loading="eager" />
-        <div class="hero-shade"></div>
-        <div class="hero-body">
-          <div class="hero-tag">✦ Em destaque</div>
-          <h1>${esc(t)}</h1>
-          <p>${esc(d)}</p>
-          <button class="hero-cta" onclick="openDetail('${hero.id}')">Ver detalhes
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-          </button>
-        </div>`;
-    } else {
-      $('#heroSkeleton').style.display = 'none';
-    }
-  } catch (e) { $('#heroSkeleton').style.display = 'none'; }
+    heroList = await searchManga({ limit: 5, order: 'followedCount' });
+    renderHero();
+    initHeroSwipe();
+  } catch { $('#heroSkeleton').style.display = 'none'; }
 
   // trending
   try {
@@ -457,8 +533,71 @@ async function renderHome() {
     $('#recentRow').innerHTML = (data.data ?? []).map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join('');
   } catch { $('#recentRow').innerHTML = ''; }
 
+  // categorias por gênero (em paralelo)
+  try {
+    const [action, romance, fantasy, horror, comedy] = await Promise.all([
+      fetchCat('action', 10), fetchCat('romance', 10), fetchCat('fantasy', 10),
+      fetchCat('horror', 10), fetchCat('comedy', 10),
+    ]);
+    const fill = (sel, list) => {
+      const el = $(sel);
+      if (el) el.innerHTML = list.map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join('');
+    };
+    fill('#catActionRow', action);
+    fill('#catRomanceRow', romance);
+    fill('#catFantasyRow', fantasy);
+    fill('#catHorrorRow', horror);
+    fill('#catComedyRow', comedy);
+    // esconde seções vazias
+    [['#catActionHead', action], ['#catRomanceHead', romance], ['#catFantasyHead', fantasy], ['#catHorrorHead', horror], ['#catComedyHead', comedy]]
+      .forEach(([sel, list]) => { if (!list.length) $(sel).style.display = 'none'; });
+  } catch {}
+
   // continue lendo (histórico)
   renderContinue();
+}
+
+/* ---------- ver tudo (categoria completa) ---------- */
+let seeAllState = { cat: 'trending', offset: 0, loading: false, total: 0 };
+
+async function openSeeAll(catKey) {
+  const cat = CATS[catKey];
+  if (!cat) return;
+  showView('view-seeall');
+  $('#bottomNav').classList.add('hidden');
+  $('#seeAllTitle').textContent = cat.title.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim();
+  $('#seeAllGrid').innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="spinner"></div></div>';
+  $('#seeAllMoreBtn').style.display = 'none';
+  $('#seeAllCount').textContent = '';
+  seeAllState = { cat: catKey, offset: 0, loading: false, total: 0 };
+  await loadSeeAll(true);
+}
+
+async function loadSeeAll(reset = false) {
+  if (seeAllState.loading) return;
+  seeAllState.loading = true;
+  const grid = $('#seeAllGrid');
+  const moreBtn = $('#seeAllMoreBtn');
+  if (reset) grid.innerHTML = '';
+  moreBtn.textContent = 'Carregando…';
+  try {
+    const list = await fetchCat(seeAllState.cat, 24, seeAllState.offset);
+    if (reset) {
+      grid.innerHTML = list.length
+        ? list.map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join('')
+        : '<div class="empty" style="grid-column:1/-1"><p>Nada encontrado nesta categoria.</p></div>';
+    } else {
+      grid.insertAdjacentHTML('beforeend', list.map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join(''));
+    }
+    seeAllState.offset += list.length;
+    moreBtn.style.display = list.length < 24 ? 'none' : 'block';
+    moreBtn.textContent = 'Carregar mais ↓';
+    $('#seeAllCount').textContent = seeAllState.offset + '+';
+  } catch (e) {
+    if (reset) grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>Erro: ' + esc(e.message) + '</p></div>';
+    moreBtn.textContent = 'Tentar de novo';
+  }
+  seeAllState.loading = false;
 }
 
 function renderContinue() {
@@ -1212,9 +1351,14 @@ function pickChapter(id) { closeSheets(); openChapter(id); }
 /* ---------- botões globais ---------- */
 function bindGlobal() {
   $$('.nav-item').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
-  $$('.see-all').forEach((b) => b.addEventListener('click', () => switchTab('explore')));
   $('#btnDetailBack').addEventListener('click', () => switchTab('home'));
   $('#btnDetailFav').addEventListener('click', toggleFav);
+  $('#btnSeeAllBack').addEventListener('click', () => {
+    showView('view-home');
+    $('#bottomNav').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  });
+  $('#seeAllMoreBtn').addEventListener('click', () => loadSeeAll(false));
   $('#btnReaderBack').addEventListener('click', () => {
     if (state.detail) { showView('view-detail'); renderDetail(state.detail); }
     else switchTab('home');
@@ -1510,3 +1654,5 @@ window.openReaderSettings = openReaderSettings;
 window.markChapterRead = markChapterRead;
 window.clearSearchHistory = clearSearchHistory;
 window.doSearchTerm = doSearchTerm;
+window.openSeeAll = openSeeAll;
+window.heroGo = heroGo;

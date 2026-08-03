@@ -40,13 +40,39 @@
       </header>
 
       <div class="content" id="homeContent">
-        <div class="hero-card skeleton" id="heroSkeleton"></div>
+        <div class="hero-skeleton" id="heroSkeleton">
+          <div class="hero-track" id="heroTrack"></div>
+          <div class="hero-dots" id="heroDots"></div>
+        </div>
         <div class="section-head"><h2>Continue lendo</h2></div>
         <div class="scroll-row" id="continueRow"></div>
-        <div class="section-head"><h2>Em alta 🔥</h2><button class="see-all" data-goto="explore">Ver tudo →</button></div>
+        <div class="section-head"><h2>Em alta 🔥</h2><button class="see-all" onclick="openSeeAll('trending')">Ver tudo →</button></div>
         <div class="scroll-row" id="trendingRow"></div>
-        <div class="section-head"><h2>Recentes 📚</h2><button class="see-all" data-goto="explore">Ver tudo →</button></div>
+        <div class="section-head"><h2>Recentes 📚</h2><button class="see-all" onclick="openSeeAll('recent')">Ver tudo →</button></div>
         <div class="scroll-row" id="recentRow"></div>
+        <div class="section-head" id="catActionHead"><h2>Ação ⚔️</h2><button class="see-all" onclick="openSeeAll('action')">Ver tudo →</button></div>
+        <div class="scroll-row" id="catActionRow"></div>
+        <div class="section-head" id="catRomanceHead"><h2>Romance 💕</h2><button class="see-all" onclick="openSeeAll('romance')">Ver tudo →</button></div>
+        <div class="scroll-row" id="catRomanceRow"></div>
+        <div class="section-head" id="catFantasyHead"><h2>Fantasia 🐉</h2><button class="see-all" onclick="openSeeAll('fantasy')">Ver tudo →</button></div>
+        <div class="scroll-row" id="catFantasyRow"></div>
+        <div class="section-head" id="catHorrorHead"><h2>Terror 👻</h2><button class="see-all" onclick="openSeeAll('horror')">Ver tudo →</button></div>
+        <div class="scroll-row" id="catHorrorRow"></div>
+        <div class="section-head" id="catComedyHead"><h2>Comédia 😂</h2><button class="see-all" onclick="openSeeAll('comedy')">Ver tudo →</button></div>
+        <div class="scroll-row" id="catComedyRow"></div>
+      </div>
+    </section>
+
+    <!-- SEE ALL (categoria completa) -->
+    <section id="view-seeall" class="view">
+      <header class="topbar">
+        <button class="icon-btn" id="btnSeeAllBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <div class="brand small"><span id="seeAllTitle">Categoria</span></div>
+        <div class="top-actions"><span class="seeall-count" id="seeAllCount"></span></div>
+      </header>
+      <div class="content">
+        <div class="grid" id="seeAllGrid"></div>
+        <div class="load-row"><button class="load-btn" id="seeAllMoreBtn">Carregar mais ↓</button></div>
       </div>
     </section>
 
