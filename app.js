@@ -49,7 +49,9 @@ const state = {
   history: load('history', []),     // [{id, title, cover, chapter, chapterId, page, ts}]
   readCount: load('readCount', {}), // {mangaId: n páginas lidas}
   explore: { query: '', genre: 'all', offset: 0, loading: false },
+  searchHistory: load('searchHistory', []), // últimas buscas do usuário
   detail: null,          // mangá atual
+  premium: null,         // dados premium (AniList) do mangá atual
   chapters: [],          // capítulos do mangá atual (provedor/idioma ativo)
   allChapters: {},       // cache: {lang: [capítulos]} por idioma
   lang: 'pt-br',         // idioma ativo
@@ -498,6 +500,7 @@ async function continueReading(mangaId) {
 
 /* ---------- render: explore ---------- */
 async function initExplore() {
+  renderSearchHistory();
   if (!state.genres.length) {
     try { state.genres = await getGenres(); } catch {}
   }
@@ -518,6 +521,8 @@ async function initExplore() {
     state.explore.query = $('#searchInput').value.trim();
     state.explore.offset = 0;
     $('#exploreGrid').innerHTML = '';
+    if (state.explore.query) saveSearch(state.explore.query);
+    renderSearchHistory();
     loadExplore();
   }, 450));
   $('#loadMoreBtn').addEventListener('click', loadExplore);
@@ -552,6 +557,45 @@ async function loadExplore() {
     loadBtn.textContent = 'Carregar mais ↓';
   }
   state.explore.loading = false;
+}
+
+/* ---------- histórico de busca ---------- */
+function saveSearch(q) {
+  const list = state.searchHistory.filter((s) => s.toLowerCase() !== q.toLowerCase());
+  list.unshift(q);
+  state.searchHistory = list.slice(0, 8);
+  store('searchHistory', state.searchHistory);
+}
+
+function renderSearchHistory() {
+  const wrap = $('#searchHistoryWrap');
+  if (!wrap) return;
+  const q = (state.explore.query || '').toLowerCase();
+  const list = state.searchHistory.filter((s) => !q || s.toLowerCase() !== q);
+  if (!list.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `
+    <div class="sh-head"><span>Buscas recentes</span><button class="sh-clear" onclick="clearSearchHistory()">Limpar</button></div>
+    <div class="sh-chips">
+      ${list.map((s) => `<button class="sh-chip" onclick="doSearchTerm('${esc(s).replace(/'/g, "\\'")}')">${esc(s)}</button>`).join('')}
+    </div>`;
+}
+
+function clearSearchHistory() {
+  state.searchHistory = [];
+  store('searchHistory', []);
+  renderSearchHistory();
+  toast('Histórico de buscas limpo');
+}
+
+function doSearchTerm(q) {
+  state.explore.query = q;
+  state.explore.offset = 0;
+  const inp = $('#searchInput');
+  if (inp) inp.value = q;
+  $('#exploreGrid').innerHTML = '';
+  saveSearch(q);
+  renderSearchHistory();
+  loadExplore();
 }
 
 /* ---------- render: library ---------- */
@@ -599,6 +643,7 @@ async function openDetail(id) {
     // busca dados premium (AniList) em paralelo — não bloqueia se falhar
     let premium = null;
     try { premium = await fetchAniList(mangaTitle(m)); } catch {}
+    state.premium = premium;
     // busca idiomas disponíveis + capítulos pt-br em paralelo
     let langs = [{ code: 'pt-br', count: 0 }];
     let chapters = [];
@@ -709,7 +754,7 @@ function renderDetail(m, premium, langs) {
       <div class="lang-row" id="langRow">${langChips}${pill ? `<button class="chip ${provider === 'mangapill' ? 'active' : ''}" onclick="switchProvider('mangapill')">📖 MangaPill</button>` : ''}</div>
       ${providerInfo}
       <div class="chapter-list">
-        ${chs.length ? chs.map((c) => chapterItemHTML(c, lastRead)).join('') : '<p class="muted" style="font-size:12px">Nenhum capítulo em português ainda.</p>'}
+        ${chs.length ? chs.map((c) => chapterItemHTML(c, lastRead)).join('') : `<p class="muted" style="font-size:12px">Nenhum capítulo neste idioma ainda. Tente outro idioma ou o provedor alternativo.</p>`}
       </div>
     </div>`;
 
@@ -725,14 +770,38 @@ function chapterItemHTML(c, lastRead) {
   const read = lastRead && lastRead.chapterId === c.id;
   const group = (c.relationships ?? []).find((r) => r.type === 'scanlation_group')?.attributes?.name;
   return `
-  <div class="chapter-item" onclick="openChapter('${c.id}')">
+  <div class="chapter-item ${read ? 'read' : ''}" onclick="openChapter('${c.id}')">
     <div class="num">${c.attributes.chapter || '•'}</div>
     <div class="meta">
       <strong>${esc(chapterNum(c))}${chapterTitle(c) ? ' — ' + esc(chapterTitle(c)) : ''}</strong>
       <small>${[group, timeAgo(c.attributes.publishAt)].filter(Boolean).join(' · ')}</small>
     </div>
-    ${read ? '<svg class="read-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' : ''}
+    <button class="mark-read" title="${read ? 'Marcar como não lido' : 'Marcar como lido'}" onclick="event.stopPropagation(); markChapterRead('${c.id}')">
+      <svg viewBox="0 0 24 24" fill="${read ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </button>
   </div>`;
+}
+
+// marca um capítulo como lido (ou desmarca) sem abrir
+function markChapterRead(chapterId) {
+  const m = state.detail;
+  if (!m) return;
+  const existing = state.history.find((h) => h.id === m.id && h.chapterId === chapterId);
+  if (existing) {
+    state.history = state.history.filter((h) => !(h.id === m.id && h.chapterId === chapterId));
+    toast('Marcado como não lido');
+  } else {
+    const ch = state.chapters.find((c) => c.id === chapterId);
+    state.history.unshift({
+      id: m.id, title: mangaTitle(m), cover: mangaCover(m),
+      chapter: chapterNum(ch), chapterId, page: 0, total: 0, ts: Date.now(),
+    });
+    toast('Capítulo marcado como lido ✓');
+  }
+  store('history', state.history.slice(0, 60));
+  const lastRead = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === m.id);
+  renderDetail(m, state.premium, null);
+  renderChapterSheet();
 }
 
 function toggleFav() {
@@ -798,7 +867,7 @@ async function switchLang(code) {
       state.allChapters[code] = chs;
     }
     state.chapters = chs;
-    renderDetail(state.detail, null, await mangaLanguages(state.detail.id));
+    renderDetail(state.detail, state.premium, await mangaLanguages(state.detail.id));
     if (grid) grid.scrollTop = grid.scrollHeight;
   } catch (e) {
     toast('Erro: ' + e.message);
@@ -826,7 +895,7 @@ async function switchProvider(name) {
           translatedLanguage: 'en',
         },
       }));
-      renderDetail(state.detail, null, [{ code: 'en', count: state.chapters.length }]);
+      renderDetail(state.detail, state.premium, [{ code: 'en', count: state.chapters.length }]);
       if (grid) grid.scrollTop = grid.scrollHeight;
     } catch (e) { toast('Erro MangaPill: ' + e.message); }
   } else {
@@ -873,7 +942,7 @@ async function openChapter(chapterId, startPage = 0) {
     renderReader();
     if (idx > 0) restorePage(idx);
   } catch (e) {
-    body.innerHTML = `<div class="empty"><p>Erro: ${esc(e.message)}<br>O capítulo pode não ter páginas em pt-br.</p></div>`;
+    body.innerHTML = `<div class="empty"><p>Erro: ${esc(e.message)}<br>O capítulo pode não ter páginas disponíveis neste provedor.</p></div>`;
   }
 }
 
@@ -919,6 +988,22 @@ function updateReaderNav() {
   const nextB = $('#nextChapter');
   prevB.disabled = !(idx > 0);
   nextB.disabled = !(idx < total - 1);
+  const lbl = $('#pageJumpLabel');
+  if (lbl) lbl.textContent = (idx + 1) + '/' + total;
+}
+
+// ir para uma página específica do capítulo
+function pageJump() {
+  const r = state.reader;
+  if (!r || !r.pages.length) return;
+  const total = r.pages.length;
+  const cur = r.idx + 1;
+  const v = prompt(`Ir para página (1-${total}):`, String(cur));
+  if (v === null || v.trim() === '') return;
+  const n = parseInt(v, 10);
+  if (isNaN(n) || n < 1 || n > total) { toast('Página inválida'); return; }
+  state.reader.idx = n - 1;
+  scrollToPage();
 }
 
 function markProgress() {
@@ -1141,6 +1226,7 @@ function bindGlobal() {
   $('#sheetBackdrop').addEventListener('click', closeCharModal);
   $('#btnProfile').addEventListener('click', () => switchTab('profile'));
   $('#chapterListBtn').addEventListener('click', () => { renderChapterSheet(); openSheet('#chapterSheet'); });
+  $('#pageJumpBtn').addEventListener('click', pageJump);
   $('#closeSheet').addEventListener('click', closeSheets);
   $('#btnDownloadChapter').addEventListener('click', downloadChapter);
   $('#btnReaderSettings').addEventListener('click', openReaderSettings);
@@ -1421,3 +1507,6 @@ window.switchProvider = switchProvider;
 window.downloadChapter = downloadChapter;
 window.deleteDownload = deleteDownload;
 window.openReaderSettings = openReaderSettings;
+window.markChapterRead = markChapterRead;
+window.clearSearchHistory = clearSearchHistory;
+window.doSearchTerm = doSearchTerm;
