@@ -17,7 +17,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260803b" />
+  <script>
+    // versão do app — usada no cache busting e no service worker
+    window.APP_VERSION = '20260803b';
+  </script>
+  <script src="app.js?v=20260803b" defer></script>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -225,7 +230,5 @@
 
   <div class="sheet-backdrop" id="sheetBackdrop"></div>
   <div class="toast" id="toast"></div>
-
-  <script src="app.js"></script>
 </body>
 </html>

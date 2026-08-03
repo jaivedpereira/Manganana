@@ -466,13 +466,13 @@ function renderHero() {
   if (!heroList.length) { sk.style.display = 'none'; return; }
   sk.className = 'hero-skeleton';
   sk.style.display = '';
-  track.innerHTML = heroList.map((m) => {
+  track.innerHTML = heroList.map((m, i) => {
     const t = mangaTitle(m);
     const d = mangaDesc(m).slice(0, 110);
     const full = mangaCoverFull(m);
     return `
     <div class="hero-card slide">
-      <img src="${full}" alt="${esc(t)}" loading="lazy" />
+      <img data-src="${full}" alt="${esc(t)}" loading="eager" decoding="async" />
       <div class="hero-shade"></div>
       <div class="hero-body">
         <div class="hero-tag">✦ Em destaque</div>
@@ -486,6 +486,14 @@ function renderHero() {
   }).join('');
   dots.innerHTML = heroList.map((_, i) => `<button class="dot ${i === 0 ? 'active' : ''}" onclick="heroGo(${i})"></button>`).join('');
   heroIdx = 0;
+  // pré-carrega as capas via JS (o lazy não carrega slides escondidos no track)
+  $$('#heroTrack img').forEach((img) => {
+    const src = img.dataset.src;
+    if (!src) return;
+    const loader = new Image();
+    loader.onload = () => { if (img.dataset.src) { img.src = src; img.removeAttribute('data-src'); } };
+    loader.src = src;
+  });
   startHeroTimer();
 }
 
@@ -525,9 +533,9 @@ function initHeroSwipe() {
 
 async function renderHome() {
   const c = $('#homeContent');
-  // hero (carrossel com os 10 mais populares)
+  // hero (carrossel com os 5 mais populares)
   try {
-    heroList = await searchManga({ limit: 10, order: 'followedCount' });
+    heroList = await searchManga({ limit: 5, order: 'followedCount' });
     renderHero();
     initHeroSwipe();
   } catch { $('#heroSkeleton').style.display = 'none'; }
@@ -1506,13 +1514,21 @@ function registerSW() {
   const doRegister = () => {
     navigator.serviceWorker.register('/sw.js').then((reg) => {
       swReady = true;
+      // atualização automática: quando um SW novo termina de instalar,
+      // recarrega a página para carregar a versão nova (sem cache antigo)
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (nw) nw.addEventListener('statechange', () => {
           if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            toast('Nova versão disponível — recarregue para atualizar');
+            toast('Nova versão disponível — atualizando…');
+            setTimeout(() => window.location.reload(), 600);
           }
         });
+      });
+      // verifica updates periodicamente (a cada 30 min) e no foco
+      setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
       });
     }).catch(() => {});
   };

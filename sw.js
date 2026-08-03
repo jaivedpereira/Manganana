@@ -1,10 +1,11 @@
 /* ===== Manganana Service Worker =====
-   - Cache dos arquivos do app (carregamento instantâneo)
-   - Cache automático de imagens do leitor (leitura offline)
-   - Estratégia: cache-first p/ assets, network-first p/ API
+   - Navegação: NETWORK-FIRST (sempre busca o HTML novo no servidor)
+   - Assets com ?v=: cache-first (URL muda a cada versão → nunca serve o antigo)
+   - Imagens do leitor: cache-first (downloads offline)
+   - API: network-first com fallback
 */
 
-const VERSION = 'manganana-v1.3.0';
+const VERSION = 'manganana-v1.4.0';
 const CORE_CACHE = VERSION + '-core';
 const CHAPTER_CACHE = VERSION + '-chapters';
 
@@ -12,8 +13,8 @@ const CHAPTER_CACHE = VERSION + '-chapters';
 const CORE_ASSETS = [
   '/',
   '/index.html',
-  '/styles.css',
-  '/app.js',
+  '/styles.css?v=' + VERSION,
+  '/app.js?v=' + VERSION,
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -54,6 +55,21 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (req.method !== 'GET') return;
 
+  // NAVEGAÇÃO (HTML): network-first — sempre busca o site novo.
+  // Só usa cache se estiver offline (modo avião → app instalado continua funcionando)
+  if (req.mode === 'navigate' || url.pathname === '/') {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CORE_CACHE).then((c) => c.put('/index.html', clone)).catch(() => {});
+          return res;
+        })
+        .catch(() => caches.match('/index.html').then((c) => c || caches.match('/')))
+    );
+    return;
+  }
+
   // API do próprio app (proxies): network-first com fallback p/ cache
   if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/img')) {
     e.respondWith(
@@ -86,7 +102,8 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // assets core: cache-first
+  // assets (styles.css, app.js, ícones): cache-first.
+  // Como o HTML novo referencia ?v= novo, o cache antigo não casa → busca na rede.
   e.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
