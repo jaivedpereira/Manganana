@@ -409,6 +409,24 @@ function rowHTML(m, faved) {
   </article>`;
 }
 
+// card grande estilo home (usado no Ver tudo) — capa em destaque + título + ano + tags
+function bigCardHTML(m, faved) {
+  const title = mangaTitle(m);
+  const cover = mangaCover(m);
+  const year = mangaYear(m);
+  const tags = mangaTags(m);
+  return `
+  <article class="big-card" data-id="${m.id}" onclick="openDetail('${m.id}')">
+    <div class="bcover">
+      ${coverImg(cover, title)}
+      ${faved ? '<span class="tag">♥ FAV</span>' : ''}
+      ${year ? `<span class="byear">${year}</span>` : ''}
+    </div>
+    <h3>${esc(title)}</h3>
+    ${tags.length ? `<div class="btags">${tags.slice(0, 2).map((t) => `<span class="rtag-chip">${esc(t)}</span>`).join('')}</div>` : ''}
+  </article>`;
+}
+
 /* ---------- render: home ---------- */
 // nomes de gêneros (inglês) para buscar por categoria
 const CATS = {
@@ -507,9 +525,9 @@ function initHeroSwipe() {
 
 async function renderHome() {
   const c = $('#homeContent');
-  // hero (carrossel com os 5 mais seguidos)
+  // hero (carrossel com os 10 mais populares)
   try {
-    heroList = await searchManga({ limit: 5, order: 'followedCount' });
+    heroList = await searchManga({ limit: 10, order: 'followedCount' });
     renderHero();
     initHeroSwipe();
   } catch { $('#heroSkeleton').style.display = 'none'; }
@@ -582,12 +600,13 @@ async function loadSeeAll(reset = false) {
   moreBtn.textContent = 'Carregando…';
   try {
     const list = await fetchCat(seeAllState.cat, 24, seeAllState.offset);
+    const html = (m) => bigCardHTML(m, state.favs.some((f) => f.id === m.id));
     if (reset) {
       grid.innerHTML = list.length
-        ? list.map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join('')
+        ? list.map(html).join('')
         : '<div class="empty" style="grid-column:1/-1"><p>Nada encontrado nesta categoria.</p></div>';
     } else {
-      grid.insertAdjacentHTML('beforeend', list.map((m) => cardHTML(m, state.favs.some((f) => f.id === m.id))).join(''));
+      grid.insertAdjacentHTML('beforeend', list.map(html).join(''));
     }
     seeAllState.offset += list.length;
     moreBtn.style.display = list.length < 24 ? 'none' : 'block';
