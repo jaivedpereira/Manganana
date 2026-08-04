@@ -122,7 +122,7 @@ module.exports = async function handler(req, res) {
         set.bio = body.bio;
       }
       if (typeof body.banner === 'string') {
-        if (body.banner.length > 300_000) return res.status(413).json({ ok: false, error: 'Banner muito grande (máx 300KB)' });
+        if (body.banner.length > 2_500_000) return res.status(413).json({ ok: false, error: 'Banner muito grande (máx 2.5MB)' });
         set.banner = body.banner;
       }
       if (!Object.keys(set).length) return res.status(400).json({ ok: false, error: 'Nada para salvar' });

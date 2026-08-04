@@ -2024,10 +2024,26 @@ async function saveProfile() {
 
 let pendingBanner = null;
 
-// upload do banner (comprime via canvas p/ caber no banco)
+// upload do banner (GIF preserva animação; imagem é comprimida via canvas)
 function handleBannerUpload(file) {
   if (!file) return;
   if (file.size > 8 * 1024 * 1024) { toast('Imagem muito grande (máx 8MB)'); return; }
+  // GIF animado: preserva a animação (canvas congelaria no 1º frame)
+  if (file.type === 'image/gif' || /\.gif$/i.test(file.name)) {
+    const rd = new FileReader();
+    rd.onload = () => {
+      pendingBanner = rd.result;
+      const pv = $('#epBannerPreview');
+      if (pv) pv.style.backgroundImage = `url(${pendingBanner})`;
+      const txt = $('#epBannerText');
+      if (txt) txt.textContent = 'GIF pronto ✓';
+      $('#epBannerRemove').hidden = false;
+      toast('GIF pronto! Toque em Salvar');
+    };
+    rd.onerror = () => toast('Não foi possível ler o GIF');
+    rd.readAsDataURL(file);
+    return;
+  }
   const img = new Image();
   const url = URL.createObjectURL(file);
   img.onload = () => {

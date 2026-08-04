@@ -359,12 +359,13 @@ button:active svg{transform:scale(.9)}
 .avatar.big img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 
 /* ===== PERFIL RICO (banner como fundo, bio, listas) ===== */
-#view-profile{position:relative}
 #view-profile .topbar{position:relative;z-index:5;background:linear-gradient(180deg,rgba(7,10,18,.65),rgba(7,10,18,0))}
-#view-profile .profile-banner{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;overflow:hidden;pointer-events:none}
+#view-profile .profile-banner{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;overflow:hidden;pointer-events:none;background-color:#0f1524}
 #view-profile .profile-banner .pb-edit{pointer-events:auto}
 #view-profile .profile-banner[style*="url"]{pointer-events:none}
-#view-profile .profile-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,10,18,.35) 0%,rgba(7,10,18,.62) 40%,var(--bg) 100%);pointer-events:none}
+#view-profile .profile-banner::after{content:'';position:absolute;inset:0;background:
+  radial-gradient(120% 80% at 20% 0%,rgba(7,10,18,.1) 0%,rgba(7,10,18,.55) 55%,var(--bg) 100%),
+  linear-gradient(180deg,rgba(7,10,18,.3) 0%,rgba(7,10,18,.55) 45%,var(--bg) 100%);pointer-events:none}
 #view-profile .profile-banner .pb-fallback{position:absolute;inset:0;background:linear-gradient(120deg,#1a2340 0%,#0f1524 45%,#232c4a 100%)}
 #view-profile .profile-banner .pb-fallback::before{content:'';position:absolute;inset:0;background:radial-gradient(600px 180px at 85% -20%,rgba(255,214,10,.16) 0%,transparent 60%),radial-gradient(500px 200px at 10% 120%,rgba(61,74,117,.5) 0%,transparent 60%)}
 #view-profile .profile-banner .pb-fallback::after{content:'📖';position:absolute;right:18px;bottom:14px;font-size:34px;opacity:.5;filter:grayscale(.2)}
