@@ -1107,6 +1107,7 @@ function markProgress() {
   const lastSeen = load('lastSeen', {});
   lastSeen[r.manga.id] = r.chapter.id;
   store('lastSeen', lastSeen);
+  schedulePush();
 }
 
 // marca um capítulo como lido (ou desmarca) sem abrir
@@ -1132,6 +1133,7 @@ function markChapterRead(chapterId) {
   const lastRead = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === m.id);
   renderDetail(m, state.premium, null);
   renderChapterSheet();
+  schedulePush();
 }
 
 function toggleFav() {
@@ -1149,6 +1151,7 @@ function toggleFav() {
   $('#btnDetailFav')?.classList.toggle('faved', idx < 0);
   if (idx < 0) { const b = $('#detailFavBtn'); if (b) b.innerHTML = b.innerHTML.replace('fill="none"', 'fill="currentColor"'); }
   renderLibrary();
+  schedulePush();
 }
 
 // modal de personagem (detalhe premium)
@@ -1643,6 +1646,241 @@ function renderVisits() {
   txt.textContent = total.toLocaleString('pt-BR') + ' visitas';
 }
 
+/* ---------- conta (Clerk) + sincronização ---------- */
+let clerkLoaded = false;
+let syncUser = null; // {id, name, email, image}
+
+function clerkReady() {
+  return typeof window.Clerk !== 'undefined' && !!window.Clerk.load;
+}
+
+// inicializa o Clerk e atualiza a UI de conta
+async function initClerk() {
+  try {
+    if (!window.Clerk) return;
+    if (!clerkLoaded) {
+      await window.Clerk.load();
+      clerkLoaded = true;
+    }
+    window.Clerk.addListener(({ user }) => {
+      syncUser = user ? { id: user.id, name: user.fullName || 'Leitor', email: user.primaryEmailAddress?.emailAddress || '', image: user.imageUrl || '' } : null;
+      renderAccount();
+      if (user) pullSync();
+    });
+    syncUser = window.Clerk.user ? { id: window.Clerk.user.id, name: window.Clerk.user.fullName || 'Leitor', email: window.Clerk.user.primaryEmailAddress?.emailAddress || '', image: window.Clerk.user.imageUrl || '' } : null;
+    renderAccount();
+    // se já está logado (reload da página), puxa/sincroniza de qualquer forma
+    if (syncUser) {
+      pullSync();
+      setTimeout(pushSync, 2500); // garantia: sobe os dados locais
+    }
+  } catch (e) {
+    console.warn('Clerk init falhou:', e.message);
+  }
+}
+
+// botão entrar com Google
+async function googleLogin() {
+  if (!clerkReady()) { toast('Carregando login…'); return; }
+  try {
+    // redireciona para a página de login hospedada do Clerk (Account Portal)
+    // — funciona sem depender da UI bundle no nosso site
+    await window.Clerk.redirectToSignIn({ redirectUrl: location.href });
+  } catch (e) {
+    console.warn('redirectToSignIn:', e);
+    toast('Não foi possível abrir o login: ' + (e?.message || 'erro'));
+  }
+}
+
+// sincronização manual com feedback REAL
+async function syncNow() {
+  if (!syncUser) { toast('Entre com sua conta primeiro'); return; }
+  toast('Sincronizando…');
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) { toast('⚠️ Sem token de sessão — recarregue e tente de novo'); return; }
+    const r = await fetch('/api/sync', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ data: { favs: state.favs, history: state.history, readCount: load('readCount', {}), lastSeen: load('lastSeen', {}), settings: state.settings } }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 200 && j.ok) toast('Sincronizado! ☁️');
+    else toast('Erro ' + r.status + ': ' + (j.error || 'API recusou o token'));
+  } catch (e) {
+    toast('Erro: ' + (e?.message || 'rede'));
+  }
+}
+
+async function logout() {
+  try {
+    await window.Clerk.signOut();
+    syncUser = null;
+    renderAccount();
+    toast('Saiu da conta');
+  } catch { /* ignora */ }
+}
+
+// upload de foto de perfil — o Clerk guarda a imagem e serve via CDN
+async function changeProfilePhoto(file) {
+  if (!file || !syncUser || !clerkReady()) return;
+  // validação: imagem e tamanho máx ~5MB
+  if (!file.type.startsWith('image/')) { toast('Escolha uma imagem'); return; }
+  if (file.size > 5 * 1024 * 1024) { toast('Imagem muito grande (máx 5MB)'); return; }
+  try {
+    const user = window.Clerk.user;
+    if (typeof user.setProfileImage === 'function') {
+      await user.setProfileImage({ file });
+    } else if (typeof user.update === 'function') {
+      await user.update({ profileImage: file });
+    } else {
+      toast('Upload não suportado nesta versão');
+      return;
+    }
+    syncUser.image = user.imageUrl || '';
+    renderAccount();
+    schedulePush(); // salva a URL da foto na nuvem também
+    toast('Foto atualizada! 📸');
+  } catch (e) {
+    console.warn('upload foto:', e);
+    toast('Erro ao atualizar foto');
+  }
+}
+
+function renderAccount() {
+  const guest = $('#accountGuest');
+  const user = $('#accountUser');
+  const avatar = $('#profileAvatar');
+  const name = $('#profileName');
+  const email = $('#profileEmail');
+  if (!guest || !user) return;
+  if (syncUser) {
+    guest.hidden = true;
+    user.hidden = false;
+    if (avatar) {
+      if (syncUser.image) avatar.innerHTML = `<img src="${syncUser.image}" alt="avatar" referrerpolicy="no-referrer" />`;
+      else avatar.textContent = (syncUser.name || 'L')[0].toUpperCase();
+    }
+    if (name) name.textContent = syncUser.name || 'Leitor';
+    if (email) email.textContent = syncUser.email || 'Sincronização ativa';
+  } else {
+    guest.hidden = false;
+    user.hidden = true;
+    if (avatar) avatar.textContent = 'J';
+    if (name) name.textContent = 'Leitor';
+    if (email) email.textContent = 'Leitor do Manganana';
+  }
+}
+
+/* ---------- sincronização com a nuvem ---------- */
+
+// salva tudo na nuvem (favoritos + histórico + progresso + settings)
+async function pushSync() {
+  if (!syncUser) return;
+  const payload = {
+    favs: state.favs,
+    history: state.history,
+    readCount: load('readCount', {}),
+    lastSeen: load('lastSeen', {}),
+    newChapters: load('newChapters', {}),
+    settings: state.settings,
+    filters: state.filters,
+  };
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) { console.warn('pushSync: sem token'); return; }
+    const r = await fetch('/api/sync', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ data: payload }),
+    });
+    console.log('pushSync:', r.status, await r.text());
+  } catch (e) { console.warn('pushSync erro:', e.message); }
+}
+
+let syncTimer = null;
+function schedulePush() {
+  if (!syncUser) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushSync, 1500);
+}
+
+// puxa dados da nuvem e faz merge inteligente (item mais recente vence)
+async function pullSync() {
+  if (!syncUser) return;
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) { console.warn('pullSync: sem token'); return; }
+    const r = await fetch('/api/sync', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    const j = await r.json();
+    console.log('pullSync:', r.status, 'ok=', j.ok);
+    if (!j.ok || !j.data) return;
+    const cloud = j.data;
+    if (!cloud || Object.keys(cloud).length === 0) {
+      // primeira vez: sobe o que tem local
+      pushSync();
+      return;
+    }
+    mergeData(cloud);
+    toast('Dados sincronizados ☁️');
+  } catch { /* silencioso */ }
+}
+
+// merge: une local + nuvem; para arrays usa o mais recente por item (ts)
+function mergeData(cloud) {
+  // favoritos: une por id
+  const mergedFavs = [...state.favs];
+  (cloud.favs || []).forEach((cf) => {
+    if (!mergedFavs.some((f) => f.id === cf.id)) mergedFavs.push(cf);
+  });
+  state.favs = mergedFavs;
+  store('favs', state.favs);
+
+  // histórico: une por (id+chapterId), item mais recente vence
+  const localHist = state.history.map((h) => ({ ...h, _src: 'l' }));
+  const cloudHist = (cloud.history || []).map((h) => ({ ...h, _src: 'c' }));
+  const byKey = {};
+  [...localHist, ...cloudHist].forEach((h) => {
+    const key = h.id + '|' + (h.chapterId || '');
+    if (!byKey[key] || (h.ts || 0) > (byKey[key].ts || 0)) byKey[key] = h;
+  });
+  state.history = Object.values(byKey)
+    .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+    .map(({ _src, ...h }) => h);
+  store('history', state.history.slice(0, 60));
+
+  // readCount: soma (maior conta de páginas de cada fonte)
+  const rc = { ...(cloud.readCount || {}) };
+  Object.entries(load('readCount', {})).forEach(([k, v]) => {
+    rc[k] = Math.max(rc[k] || 0, v);
+  });
+  store('readCount', rc);
+
+  // lastSeen: mais recente vence por mangá
+  const ls = { ...load('lastSeen', {}) };
+  Object.entries(cloud.lastSeen || {}).forEach(([k, v]) => { ls[k] = v; });
+  store('lastSeen', ls);
+
+  // settings: nuvem vence se tiver (mais recente)
+  if (cloud.settings) {
+    state.settings = { ...state.settings, ...cloud.settings };
+    store('settings', state.settings);
+    applyTheme();
+  }
+
+  // filtros
+  if (cloud.filters) {
+    state.filters = { ...state.filters, ...cloud.filters };
+    store('filters', state.filters);
+  }
+
+  renderHome();
+  renderLibrary();
+  renderProfile();
+}
+
 /* ---------- settings / sheets ---------- */
 function openSheet(id) {
   $(id).classList.add('open');
@@ -1698,6 +1936,13 @@ function bindGlobal() {
   });
   $('#fApply').addEventListener('click', applyFilters);
   $('#fClear').addEventListener('click', clearFilters);
+  $('#btnGoogleLogin').addEventListener('click', googleLogin);
+  $('#btnLogout').addEventListener('click', logout);
+  $('#btnSyncNow').addEventListener('click', syncNow);
+  $('#photoInput').addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) changeProfilePhoto(e.target.files[0]);
+    e.target.value = '';
+  });
   $('#btnDetailBack').addEventListener('click', () => switchTab('home'));
   $('#btnDetailFav').addEventListener('click', toggleFav);
   $('#btnDetailShare').addEventListener('click', shareManga);
@@ -2056,6 +2301,7 @@ function bindToTop() {
   registerSW();
   checkNewChapters();
   countVisit();
+  initClerk();
   // deep link: ?manga=ID abre direto o mangá (links compartilhados)
   const q = new URLSearchParams(location.search);
   const mangaId = q.get('manga');
@@ -2091,3 +2337,4 @@ window.prevChapterNav = prevChapterNav;
 window.nextChapterNav = nextChapterNav;
 window.closeReader = closeReader;
 window.scrollTopHome = scrollTopHome;
+window.syncNow = syncNow;
