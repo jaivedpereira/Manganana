@@ -18,6 +18,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css?v=20260803b" />
+  <!-- Vercel Web Analytics (visitas/views no dashboard) -->
+  <script defer src="/_vercel/insights/script.js"></script>
   <script>
     // versão do app — usada no cache busting e no service worker
     window.APP_VERSION = '20260803b';
@@ -164,6 +166,10 @@
           <div class="stat"><strong id="statFavs">0</strong><span>favoritos</span></div>
           <div class="stat"><strong id="statRead">0</strong><span>lidos</span></div>
           <div class="stat"><strong id="statPages">0</strong><span>páginas</span></div>
+        </div>
+        <div class="visit-count" id="visitCount" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span id="visitCountText"></span>
         </div>
         <div class="menu-list">
           <button class="menu-item" id="btnClearHistory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Limpar histórico</button>

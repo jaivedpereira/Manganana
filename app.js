@@ -1586,6 +1586,7 @@ function renderProfile() {
   const pages = Object.values(load('readCount', {})).reduce((a, b) => a + b, 0);
   $('#statPages').textContent = pages;
   renderSpotlight();
+  renderVisits();
 }
 
 // capa em destaque: o mangá mais lido (maior contagem de páginas)
@@ -1613,6 +1614,33 @@ function spotlightClick() {
   const readCount = load('readCount', {});
   const entries = Object.entries(readCount).sort((a, b) => b[1] - a[1]);
   if (entries.length) openDetail(entries[0][0]);
+}
+
+/* ---------- contador de visitas ---------- */
+// conta 1 visita por sessão (sessionStorage) via counterapi.dev e exibe no perfil
+const VISIT_KEY = 'mn_visitCounted';
+async function countVisit() {
+  try {
+    if (sessionStorage.getItem(VISIT_KEY)) return;
+    const r = await fetch('https://api.counterapi.dev/v1/manganana/manganana-visits/up', { method: 'GET' });
+    const j = await r.json();
+    if (j && typeof j.count === 'number') {
+      sessionStorage.setItem(VISIT_KEY, '1');
+      store('visitTotal', j.count);
+      renderProfile();
+    }
+  } catch { /* offline/erro: não quebra nada */ }
+}
+
+// mostra o total de visitas no perfil (atualizado a cada visita contada)
+function renderVisits() {
+  const el = $('#visitCount');
+  const txt = $('#visitCountText');
+  if (!el || !txt) return;
+  const total = load('visitTotal', 0);
+  if (!total) { el.hidden = true; return; }
+  el.hidden = false;
+  txt.textContent = total.toLocaleString('pt-BR') + ' visitas';
 }
 
 /* ---------- settings / sheets ---------- */
@@ -2027,6 +2055,7 @@ function bindToTop() {
   renderProfile();
   registerSW();
   checkNewChapters();
+  countVisit();
   // deep link: ?manga=ID abre direto o mangá (links compartilhados)
   const q = new URLSearchParams(location.search);
   const mangaId = q.get('manga');
