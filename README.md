@@ -30,6 +30,10 @@ Aplicativo web de leitura de mangá em **português** — catálogo real com a *
 - 📤 **Compartilhar mangá** — botão no app (Web Share nativo) + link bonito `?manga=ID` que abre direto o mangá
 - 🔍 **Filtros avançados na busca** — status (publicando/completo/hiato), ano (2020–2026 ou antes de 2020) e ordenação (popularidade, recentes, ano, título A-Z)
 - ⭐ **Capa em destaque no perfil** — o mangá mais lido aparece em destaque com contagem de páginas
+- 📚 **Biblioteca turbinada** — busca dentro dos favoritos, ordenação (Recentes / A-Z / Mais lidos) e barra de progresso de leitura nos cards
+- ⬆️ **Botão voltar ao topo** na home (aparece ao rolar)
+- 📖 **Fim de capítulo** no leitor — bloco com "Próximo capítulo →", "← Anterior" e "Voltar ao mangá"
+- 🏷️ **Título dinâmico na aba** — mostra o mangá/capítulo atual no navegador
 
 ## 🚀 Como rodar
 
