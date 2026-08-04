@@ -170,14 +170,6 @@
             </div>
           </div>
           <p class="profile-bio" id="profileBio" hidden></p>
-          <div class="edit-profile-box" id="editProfileBox" hidden>
-            <label class="ep-label">Bio</label>
-            <textarea id="editBio" rows="2" maxlength="300" placeholder="Conte um pouco sobre você…"></textarea>
-            <div class="ep-actions">
-              <button class="ep-save" onclick="saveProfile()">Salvar</button>
-              <button class="ep-cancel" onclick="toggleEditProfile(false)">Cancelar</button>
-            </div>
-          </div>
         </div>
         <div class="account-box" id="accountBox">
           <div class="account-guest" id="accountGuest">
@@ -372,6 +364,24 @@
   </div>
 
   <div class="sheet-backdrop" id="sheetBackdrop"></div>
+
+  <!-- sheet de edição de perfil -->
+  <div class="sheet" id="editProfileSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><strong>Editar perfil</strong><button class="icon-btn" onclick="closeEditSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="sheet-body" style="padding:4px 16px 24px">
+      <label class="ep-label">Banner</label>
+      <div class="ep-banner-preview" id="epBannerPreview" onclick="document.getElementById('epBannerInput').click()">
+        <span id="epBannerText">Toque para escolher um banner 📷</span>
+      </div>
+      <input type="file" id="epBannerInput" accept="image/*" hidden />
+      <button class="ep-banner-remove" id="epBannerRemove" onclick="removeBanner()" hidden>Remover banner</button>
+      <label class="ep-label" style="display:block;margin-top:14px">Bio</label>
+      <textarea id="editBio" rows="3" maxlength="300" placeholder="Conte um pouco sobre você…"></textarea>
+      <button class="ep-save" onclick="saveProfile()">Salvar</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <!-- botão voltar ao topo (aparece ao rolar) -->

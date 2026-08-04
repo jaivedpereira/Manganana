@@ -1951,11 +1951,47 @@ function renderListsSection() {
     `;
 }
 
-// abre/fecha o editor de perfil
+// abre/fecha o editor de perfil (sheet)
 function toggleEditProfile(open) {
-  $('#editProfileBox').hidden = !open;
-  $('#btnEditProfile').hidden = open;
-  if (open) $('#editBio').value = myProfileData?.bio || '';
+  if (!open) { closeEditSheet(); return; }
+  if (!syncUser) { switchTab('profile'); return; }
+  const sh = $('#editProfileSheet');
+  if (!sh) return;
+  $('#editBio').value = myProfileData?.bio || '';
+  // preview do banner atual no editor
+  const pv = $('#epBannerPreview');
+  const txt = $('#epBannerText');
+  const rm = $('#epBannerRemove');
+  if (pendingBanner || myProfileData?.banner) {
+    const src = pendingBanner || myProfileData.banner;
+    pv.style.backgroundImage = `url(${src})`;
+    txt.textContent = 'Banner selecionado ✓';
+    rm.hidden = false;
+  } else {
+    pv.style.backgroundImage = '';
+    txt.textContent = 'Toque para escolher um banner 📷';
+    rm.hidden = true;
+  }
+  sh.classList.add('open');
+  $('#sheetBackdrop').classList.add('open');
+}
+
+function closeEditSheet() {
+  $('#editProfileSheet')?.classList.remove('open');
+  $('#sheetBackdrop')?.classList.remove('open');
+}
+
+// remove o banner do perfil
+function removeBanner() {
+  pendingBanner = null;
+  myProfileData = { ...(myProfileData || {}), banner: '' };
+  const pv = $('#epBannerPreview');
+  if (pv) { pv.style.backgroundImage = ''; }
+  const txt = $('#epBannerText');
+  if (txt) txt.textContent = 'Toque para escolher um banner 📷';
+  $('#epBannerRemove').hidden = true;
+  renderMyProfile();
+  toast('Banner removido — toque em Salvar para confirmar');
 }
 
 // salva bio (+ banner se tiver pendente)
@@ -1964,6 +2000,10 @@ async function saveProfile() {
   const bio = $('#editBio').value.trim();
   const body = { bio };
   if (pendingBanner) { body.banner = pendingBanner; }
+  // se marcou remover banner e não tem pendente, envia vazio
+  if (!myProfileData?.banner && !pendingBanner && $('#epBannerRemove')?.hidden === false) {
+    body.banner = '';
+  }
   try {
     const token = await window.Clerk.session?.getToken();
     if (!token) { toast('Sessão expirada — recarregue a página'); return; }
@@ -1976,7 +2016,7 @@ async function saveProfile() {
     if (!j.ok) { toast('Erro: ' + (j.error || 'não foi possível salvar')); return; }
     myProfileData = { ...(myProfileData || {}), bio };
     if (pendingBanner) { myProfileData.banner = pendingBanner; pendingBanner = null; }
-    toggleEditProfile(false);
+    closeEditSheet();
     renderMyProfile();
     toast('Perfil salvo! ✨');
   } catch { toast('Erro de rede — tente de novo'); }
@@ -2004,9 +2044,13 @@ function handleBannerUpload(file) {
     ctx.drawImage(img, 0, 0, w, h);
     pendingBanner = cv.toDataURL('image/jpeg', 0.72);
     URL.revokeObjectURL(url);
-    // preview
-    $('#profileBanner').style.backgroundImage = `url(${pendingBanner})`;
-    toast('Banner pronto! Toque em "Salvar" para aplicar');
+    // preview no editor
+    const pv = $('#epBannerPreview');
+    if (pv) pv.style.backgroundImage = `url(${pendingBanner})`;
+    const txt = $('#epBannerText');
+    if (txt) txt.textContent = 'Banner pronto ✓';
+    $('#epBannerRemove').hidden = false;
+    toast('Banner pronto! Toque em Salvar');
   };
   img.onerror = () => toast('Imagem inválida');
   img.src = url;
@@ -2390,12 +2434,12 @@ function bindGlobal() {
   $('#btnGoogleLogin').addEventListener('click', googleLogin);
   $('#btnLogout').addEventListener('click', logout);
   $('#btnSyncNow').addEventListener('click', syncNow);
-  $('#btnEditBanner').addEventListener('click', () => $('#bannerInput').click());
-  $('#bannerInput').addEventListener('change', (e) => {
+  $('#btnEditProfile').addEventListener('click', () => toggleEditProfile(true));
+  $('#epBannerInput').addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) handleBannerUpload(e.target.files[0]);
     e.target.value = '';
   });
-  $('#btnEditProfile').addEventListener('click', () => toggleEditProfile(true));
+  $('#btnEditBanner').addEventListener('click', () => toggleEditProfile(true));
   $('#photoInput').addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) changeProfilePhoto(e.target.files[0]);
     e.target.value = '';
@@ -2981,6 +3025,8 @@ window.openListPicker = openListPicker;
 window.setMangaList = setMangaList;
 window.saveProfile = saveProfile;
 window.toggleEditProfile = toggleEditProfile;
+window.closeEditSheet = closeEditSheet;
+window.removeBanner = removeBanner;
 window.openReaderSettings = openReaderSettings;
 window.markChapterRead = markChapterRead;
 window.clearSearchHistory = clearSearchHistory;
