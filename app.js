@@ -49,6 +49,7 @@ const state = {
   history: load('history', []),     // [{id, title, cover, chapter, chapterId, page, ts}]
   readCount: load('readCount', {}), // {mangaId: n páginas lidas}
   explore: { query: '', genre: 'all', offset: 0, loading: false },
+  filters: load('filters', { status: '', year: '', sort: 'followedCount' }), // busca avançada
   searchHistory: load('searchHistory', []), // últimas buscas do usuário
   detail: null,          // mangá atual
   premium: null,         // dados premium (AniList) do mangá atual
@@ -298,7 +299,7 @@ function timeAgo(iso) {
 }
 function pct(n) { return Number(n).toFixed(1); }
 
-async function searchManga({ query = '', genre = 'all', offset = 0, limit = 24, order = 'followedCount' }) {
+async function searchManga({ query = '', genre = 'all', offset = 0, limit = 24, order = 'followedCount', status = '', year = '', sort = '' }) {
   const p = new URLSearchParams();
   p.set('limit', limit);
   p.set('offset', offset);
@@ -306,11 +307,17 @@ async function searchManga({ query = '', genre = 'all', offset = 0, limit = 24, 
   p.append('includes[]', 'author');
   p.append('includes[]', 'artist');
   p.set('availableTranslatedLanguage[]', 'pt-br');
-  p.set('order[' + order + ']', 'desc');
+  // ordenação: filtro avançado tem prioridade, senão usa o order padrão
+  const ord = sort || order;
+  if (ord === 'title') p.set('order[title]', 'asc');
+  else p.set('order[' + ord + ']', 'desc');
   p.append('contentRating[]', 'safe');
   p.append('contentRating[]', 'suggestive');
   if (query) p.set('title', query);
   if (genre !== 'all') p.set('includedTags[]', genre);
+  if (status) p.append('status[]', status); // MangaDex exige array
+  if (year === 'antigo') p.set('year', 2019); // retorna 2019 e anteriores
+  else if (year) p.set('year', year);
   const data = await mdFetch('/manga?' + p.toString());
   return data.data ?? [];
 }
@@ -806,6 +813,9 @@ async function loadExplore() {
       genre: state.explore.genre,
       offset: state.explore.offset,
       limit: 24,
+      status: state.filters.status,
+      year: state.filters.year,
+      sort: state.filters.sort,
     });
     if (!list.length && state.explore.offset === 0) {
       grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>Nenhum mangá encontrado.</p></div>';
@@ -1446,6 +1456,66 @@ function openReaderSettings() {
   openSheet('#readerSettingsSheet');
 }
 
+// compartilhar mangá — link bonito (?manga=ID) via Web Share API ou copiar
+async function shareManga() {
+  const m = state.detail;
+  if (!m) return;
+  const title = mangaTitle(m);
+  const url = location.origin + location.pathname + '?manga=' + m.id;
+  const text = `📖 ${title} — lendo no Manganana!`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, text, url });
+      return;
+    }
+  } catch { /* usuário cancelou */ }
+  // fallback: copia o link
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Link copiado! 🔗');
+  } catch {
+    prompt('Link do mangá:', url);
+  }
+}
+
+/* ---------- filtros avançados da busca ---------- */
+function openFilters() {
+  // sincroniza a UI com o estado atual
+  const sync = (sel, val) => {
+    $$(sel + ' .f-chip').forEach((c) => c.classList.toggle('active', c.dataset.v === val));
+  };
+  sync('#fStatus', state.filters.status);
+  sync('#fYear', state.filters.year);
+  sync('#fSort', state.filters.sort);
+  updateFilterDot();
+  openSheet('#filtersSheet');
+}
+
+function updateFilterDot() {
+  const dot = $('#filterDot');
+  const has = state.filters.status || state.filters.year || state.filters.sort !== 'followedCount';
+  if (dot) dot.classList.toggle('show', !!has);
+}
+
+function applyFilters() {
+  closeSheets();
+  state.explore.offset = 0;
+  $('#exploreGrid').innerHTML = '';
+  updateFilterDot();
+  loadExplore();
+  toast('Filtros aplicados');
+}
+
+function clearFilters() {
+  state.filters = { status: '', year: '', sort: 'followedCount' };
+  store('filters', state.filters);
+  $$('#fStatus .f-chip').forEach((c) => c.classList.toggle('active', c.dataset.v === ''));
+  $$('#fYear .f-chip').forEach((c) => c.classList.toggle('active', c.dataset.v === ''));
+  $$('#fSort .f-chip').forEach((c) => c.classList.toggle('active', c.dataset.v === 'followedCount'));
+  applyFilters();
+  toast('Filtros limpos');
+}
+
 /* ---------- navegação ---------- */
 function switchTab(tab, keepScroll = true) {
   state.tab = tab;
@@ -1464,6 +1534,34 @@ function renderProfile() {
   $('#statRead').textContent = Object.keys(load('readCount', {})).length;
   const pages = Object.values(load('readCount', {})).reduce((a, b) => a + b, 0);
   $('#statPages').textContent = pages;
+  renderSpotlight();
+}
+
+// capa em destaque: o mangá mais lido (maior contagem de páginas)
+function renderSpotlight() {
+  const card = $('#spotlightCard');
+  if (!card) return;
+  const readCount = load('readCount', {});
+  const entries = Object.entries(readCount).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) { card.style.display = 'none'; return; }
+  // acha o título/capa pelo histórico (mais recente com esse id)
+  const topId = entries[0][0];
+  const hist = [...state.history].find((h) => h.id === topId);
+  const fav = state.favs.find((f) => f.id === topId);
+  const title = hist?.title || fav?.title || '';
+  const cover = hist?.cover || fav?.cover || '';
+  const pages = entries[0][1];
+  if (!title) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  $('#spotlightTitle').textContent = title;
+  $('#spotlightSub').textContent = pages + ' páginas lidas';
+  $('#spotlightCover').innerHTML = cover ? coverImg(cover, title) : '';
+}
+
+function spotlightClick() {
+  const readCount = load('readCount', {});
+  const entries = Object.entries(readCount).sort((a, b) => b[1] - a[1]);
+  if (entries.length) openDetail(entries[0][0]);
 }
 
 /* ---------- settings / sheets ---------- */
@@ -1490,8 +1588,26 @@ function pickChapter(id) { closeSheets(); openChapter(id); }
 /* ---------- botões globais ---------- */
 function bindGlobal() {
   $$('.nav-item').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  $('#btnFilters').addEventListener('click', openFilters);
+  $('#closeFilters').addEventListener('click', closeSheets);
+  // chips dos filtros: seleção única por grupo
+  ['#fStatus', '#fYear', '#fSort'].forEach((sel) => {
+    $(sel).addEventListener('click', (e) => {
+      const chip = e.target.closest('.f-chip');
+      if (!chip) return;
+      $$(sel + ' .f-chip').forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+      const group = sel.slice(1);
+      const key = group === 'fStatus' ? 'status' : (group === 'fYear' ? 'year' : 'sort');
+      state.filters[key] = chip.dataset.v;
+      store('filters', state.filters);
+    });
+  });
+  $('#fApply').addEventListener('click', applyFilters);
+  $('#fClear').addEventListener('click', clearFilters);
   $('#btnDetailBack').addEventListener('click', () => switchTab('home'));
   $('#btnDetailFav').addEventListener('click', toggleFav);
+  $('#btnDetailShare').addEventListener('click', shareManga);
   $('#btnSeeAllBack').addEventListener('click', () => {
     showView('view-home');
     $('#bottomNav').classList.remove('hidden');
@@ -1829,6 +1945,10 @@ function clearNewFlag(mangaId) {
   renderProfile();
   registerSW();
   checkNewChapters();
+  // deep link: ?manga=ID abre direto o mangá (links compartilhados)
+  const q = new URLSearchParams(location.search);
+  const mangaId = q.get('manga');
+  if (mangaId) { await openDetail(mangaId); history.replaceState({}, '', location.pathname); }
   setTimeout(() => $('#splash').classList.add('hidden'), 700);
 })();
 
@@ -1851,3 +1971,8 @@ window.clearSearchHistory = clearSearchHistory;
 window.doSearchTerm = doSearchTerm;
 window.openSeeAll = openSeeAll;
 window.heroGo = heroGo;
+window.shareManga = shareManga;
+window.openFilters = openFilters;
+window.applyFilters = applyFilters;
+window.clearFilters = clearFilters;
+window.spotlightClick = spotlightClick;

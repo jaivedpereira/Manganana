@@ -104,6 +104,7 @@
         <div class="search-box">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input id="searchInput" placeholder="Buscar mangá…" autocomplete="off" />
+          <button class="filter-btn" id="btnFilters" title="Filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg><span class="filter-dot" id="filterDot"></span></button>
         </div>
       </header>
       <div class="content">
@@ -139,6 +140,15 @@
           <h3>Leitor</h3>
           <p class="muted">Leitor do Manganana</p>
         </div>
+        <div class="spotlight" id="spotlightCard" onclick="spotlightClick()" style="display:none">
+          <div class="spot-cover" id="spotlightCover"></div>
+          <div class="spot-body">
+            <span class="spot-tag">⭐ Mais lido</span>
+            <h3 id="spotlightTitle">—</h3>
+            <p id="spotlightSub" class="muted">—</p>
+          </div>
+          <div class="rarrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
         <div class="stats-row">
           <div class="stat"><strong id="statFavs">0</strong><span>favoritos</span></div>
           <div class="stat"><strong id="statRead">0</strong><span>lidos</span></div>
@@ -157,7 +167,10 @@
       <header class="topbar overlay">
         <button class="icon-btn" id="btnDetailBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
         <div class="brand small"><span id="detailTitleNav">Detalhes</span></div>
-        <button class="icon-btn" id="btnDetailFav" title="Favoritar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        <div class="top-actions">
+          <button class="icon-btn" id="btnDetailShare" title="Compartilhar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></svg></button>
+          <button class="icon-btn" id="btnDetailFav" title="Favoritar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        </div>
       </header>
       <div class="content" id="detailContent"></div>
     </section>
@@ -241,6 +254,46 @@
       <label class="setting-row"><span>Qualidade</span><select id="setQuality"><option value="full">Original</option><option value="dataSaver">Economia de dados</option></select></label>
       <label class="setting-row"><span>Ler da direita p/ esquerda</span><div class="switch"><input type="checkbox" id="setRTL" /><i></i></div></label>
       <label class="setting-row"><span>Tema escuro</span><div class="switch"><input type="checkbox" id="setDark" checked /><i></i></div></label>
+    </div>
+  </div>
+
+  <!-- FILTERS SHEET (busca avançada) -->
+  <div class="sheet" id="filtersSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><strong>Filtros</strong><button class="icon-btn" id="closeFilters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="sheet-body">
+      <div class="f-group"><label>Status</label>
+        <div class="f-chips" id="fStatus">
+          <button class="f-chip" data-v="">Qualquer</button>
+          <button class="f-chip" data-v="ongoing">Publicando</button>
+          <button class="f-chip" data-v="completed">Completo</button>
+          <button class="f-chip" data-v="hiatus">Hiato</button>
+          <button class="f-chip" data-v="cancelled">Cancelado</button>
+        </div>
+      </div>
+      <div class="f-group"><label>Ano</label>
+        <div class="f-chips" id="fYear">
+          <button class="f-chip" data-v="">Qualquer</button>
+          <button class="f-chip" data-v="2026">2026</button>
+          <button class="f-chip" data-v="2025">2025</button>
+          <button class="f-chip" data-v="2024">2024</button>
+          <button class="f-chip" data-v="2023">2023</button>
+          <button class="f-chip" data-v="2022">2022</button>
+          <button class="f-chip" data-v="2021">2021</button>
+          <button class="f-chip" data-v="2020">2020</button>
+          <button class="f-chip" data-v="antigo">Antes de 2020</button>
+        </div>
+      </div>
+      <div class="f-group"><label>Ordenar por</label>
+        <div class="f-chips" id="fSort">
+          <button class="f-chip" data-v="followedCount">Mais populares</button>
+          <button class="f-chip" data-v="latestUploadedChapter">Recentes</button>
+          <button class="f-chip" data-v="year">Ano</button>
+          <button class="f-chip" data-v="title">Título A-Z</button>
+        </div>
+      </div>
+      <button class="f-apply" id="fApply">Aplicar filtros</button>
+      <button class="f-clear" id="fClear">Limpar filtros</button>
     </div>
   </div>
 
