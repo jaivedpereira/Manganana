@@ -27,6 +27,9 @@ Aplicativo web de leitura de mangá em **português** — catálogo real com a *
 - 🏆 **Ranking top 10** com medalhas (🥇🥈🥉) na home
 - 🎯 **Recomendações** — "Pra você" na home (baseado nos seus favoritos/histórico) + "Você também pode gostar" na página do mangá
 - 🔔 **Alertas de capítulo novo** — toast + badge "NOVO" na biblioteca quando um favorito ganha capítulo
+- 📤 **Compartilhar mangá** — botão no app (Web Share nativo) + link bonito `?manga=ID` que abre direto o mangá
+- 🔍 **Filtros avançados na busca** — status (publicando/completo/hiato), ano (2020–2026 ou antes de 2020) e ordenação (popularidade, recentes, ano, título A-Z)
+- ⭐ **Capa em destaque no perfil** — o mangá mais lido aparece em destaque com contagem de páginas
 
 ## 🚀 Como rodar
 
