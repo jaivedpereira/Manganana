@@ -232,6 +232,31 @@ svg{width:22px;height:22px;flex:none}
 .spot-body p{font-size:11px;margin-top:2px}
 .spotlight .rarrow{color:var(--muted)}
 
+/* ===== BIBLIOTECA TURBINADA ===== */
+.lib-tools{display:flex;flex-direction:column;gap:9px;margin:14px 0 16px}
+.lib-tools .search-box{max-width:none}
+.lib-tools .search-box input{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px 10px 36px;color:var(--text);font-size:12.5px;width:100%}
+.lib-tools .search-box svg{left:12px}
+.lib-tools .seg.small .seg-btn{font-size:10.5px;padding:7px 10px}
+.readbar{position:absolute;left:0;right:0;bottom:0;height:4px;background:#ffffff26}
+.readbar i{display:block;height:100%;background:var(--accent);border-radius:0 3px 3px 0}
+
+/* ===== VOLTAR AO TOPO ===== */
+.to-top-btn{position:fixed;right:16px;bottom:calc(var(--nav-h) + 30px + var(--safe-bottom));width:42px;height:42px;border-radius:50%;background:var(--accent);color:#141300;display:grid;place-items:center;box-shadow:0 6px 20px rgba(255,214,10,.35);opacity:0;pointer-events:none;transform:translateY(12px);transition:.25s;z-index:60}
+.to-top-btn.show{opacity:1;pointer-events:auto;transform:none}
+.to-top-btn svg{width:19px;height:19px}
+
+/* ===== FIM DO CAPÍTULO ===== */
+.chapter-end{padding:26px 20px 90px;text-align:center}
+.ce-divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+.ce-divider::before,.ce-divider::after{content:'';flex:1;height:1px;background:var(--line)}
+.ce-title{font-size:13px;font-weight:700;margin:12px 0 18px;color:var(--text)}
+.ce-actions{display:flex;gap:10px;justify-content:center;margin-bottom:12px}
+.ce-btn{font-size:12.5px;font-weight:700;padding:12px 22px;border-radius:13px}
+.ce-btn.main{background:var(--accent);color:#141300}
+.ce-btn.ghost{background:var(--panel);color:var(--text);border:1px solid var(--line)}
+.ce-btn:active{transform:scale(.97)}
+
 /* ===== GRID ===== */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .grid .manga-card{width:auto}

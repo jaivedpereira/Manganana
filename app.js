@@ -874,6 +874,8 @@ function doSearchTerm(q) {
 
 /* ---------- render: library ---------- */
 let libTab = 'favs';
+let libSort = 'recent';
+let libQuery = '';
 function renderLibrary() {
   const grid = $('#libraryGrid');
   const empty = $('#libraryEmpty');
@@ -886,14 +888,36 @@ function renderLibrary() {
     items = [...state.history].sort((a, b) => b.ts - a.ts);
     emptyText.textContent = 'Nenhum capítulo lido ainda.';
   }
+  // busca dentro da biblioteca
+  if (libQuery) {
+    const q = libQuery.toLowerCase();
+    items = items.filter((f) => (f.title || '').toLowerCase().includes(q));
+  }
+  // ordenação
+  if (libTab === 'favs') {
+    if (libSort === 'az') items = [...items].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    else if (libSort === 'read') {
+      const rc = load('readCount', {});
+      items = [...items].sort((a, b) => (rc[b.id] || 0) - (rc[a.id] || 0));
+    }
+    // 'recent': favs são salvos em ordem de adição; mostra os mais recentes primeiro
+    if (libSort === 'recent') items = [...items].reverse();
+  }
+  const readCount = load('readCount', {});
   empty.hidden = items.length > 0;
-  const newIds = load('newChapters', {}); // {mangaId: true} com capítulo novo
-  grid.innerHTML = items.map((f) => `
+  grid.innerHTML = items.map((f) => {
+    const newIds = load('newChapters', {});
+    const rc = readCount[f.id] || 0;
+    // progresso: % do último capítulo lido (se houver histórico com total)
+    const last = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === f.id);
+    const pct = last && last.total ? Math.min(100, Math.round(((last.page + 1) / last.total) * 100)) : null;
+    return `
     <article class="manga-card" onclick="openDetail('${f.id}')">
-      <div class="cover">${coverImg(f.cover, f.title)}${newIds[f.id] ? '<span class="tag novo">NOVO</span>' : ''}</div>
+      <div class="cover">${coverImg(f.cover, f.title)}${newIds[f.id] ? '<span class="tag novo">NOVO</span>' : ''}${pct != null && libTab === 'favs' ? `<div class="readbar"><i style="width:${pct}%"></i></div>` : ''}</div>
       <h3>${esc(f.title)}</h3>
-      <div class="sub">${libTab === 'history' ? esc(f.chapter) : ''}</div>
-    </article>`).join('');
+      <div class="sub">${libTab === 'history' ? esc(f.chapter) : (pct != null ? pct + '% lido' : (rc ? rc + ' págs' : ''))}</div>
+    </article>`;
+  }).join('');
 }
 
 /* ---------- render: detail ---------- */
@@ -906,12 +930,14 @@ function showView(viewId) {
 async function openDetail(id) {
   showView('view-detail');
   clearNewFlag(id);
+  document.title = 'Manganana';
   $('#view-detail').querySelector('.content').scrollTop = 0;
   $('#detailContent').innerHTML = '<div style="padding:120px 0;text-align:center;color:var(--muted)"><div class="spinner" style="margin:0 auto 14px"></div>Carregando…</div>';
   $('#bottomNav').classList.add('hidden');
   try {
     const m = await getManga(id);
     state.detail = m;
+    document.title = mangaTitle(m) + ' | Manganana';
     state.lang = 'pt-br';
     state.provider = 'mangadex';
     state.allChapters = {};
@@ -1270,6 +1296,7 @@ function renderReader() {
   const mode = state.settings.mode;
   $('#readerMangaName').textContent = mangaTitle(r.manga);
   $('#readerChapterName').textContent = chapterNum(r.chapter) + (chapterTitle(r.chapter) ? ' — ' + chapterTitle(r.chapter) : '');
+  document.title = `${chapterNum(r.chapter)} — ${mangaTitle(r.manga)} | Manganana`;
   body.classList.toggle('rtl', state.settings.rtl);
   // MangaPill: páginas já são URLs completas; MangaDex: baseUrl/hash/file
   const urls = r.provider === 'mangapill'
@@ -1277,7 +1304,7 @@ function renderReader() {
     : r.pages.map((p) => px(r.baseUrl + '/data/' + r.hash + '/' + p));
   body.innerHTML = urls.map((src) =>
     `<img class="page-img ${mode}" loading="lazy" src="${src}" alt="página" />`).join('') +
-    `<div style="height:40px"></div>`;
+    chapterEndHTML();
   applyReaderStyles();
   initReaderZoom();
   initTapZones();
@@ -1332,8 +1359,32 @@ function prevChapterNav() {
   if (idx < chs.length - 1) openChapter(chs[idx + 1].id);
   else toast('Último capítulo');
 }
+function closeReader() {
+  if (state.detail) { showView('view-detail'); renderDetail(state.detail); }
+  else switchTab('home');
+  $('#bottomNav').classList.remove('hidden');
+}
 
 /* ---------- leitor turbinado ---------- */
+// bloco "fim do capítulo" com botões de navegação
+function chapterEndHTML() {
+  const chs = state.chapters || [];
+  const cur = state.reader?.chapter?.id;
+  const idx = chs.findIndex((c) => c.id === cur);
+  const hasNext = idx < chs.length - 1;
+  const hasPrev = idx > 0;
+  return `
+  <div class="chapter-end">
+    <div class="ce-divider"><span>Fim do capítulo</span></div>
+    <div class="ce-title">${esc(chapterNum(state.reader?.chapter))}</div>
+    <div class="ce-actions">
+      ${hasPrev ? `<button class="ce-btn ghost" onclick="prevChapterNav()">← Anterior</button>` : ''}
+      ${hasNext ? `<button class="ce-btn main" onclick="nextChapterNav()">Próximo capítulo →</button>` : '<span class="muted" style="font-size:12px">Último capítulo disponível</span>'}
+    </div>
+    <button class="ce-btn ghost" onclick="closeReader()">Voltar ao mangá</button>
+  </div>`;
+}
+
 // aplica fundo + brilho + largura no leitor
 function applyReaderStyles() {
   const s = state.settings;
@@ -1588,6 +1639,20 @@ function pickChapter(id) { closeSheets(); openChapter(id); }
 /* ---------- botões globais ---------- */
 function bindGlobal() {
   $$('.nav-item').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  // busca e ordenação da biblioteca
+  $('#libSearch').addEventListener('input', (e) => { libQuery = e.target.value.trim(); renderLibrary(); });
+  $$('#libSortSeg .seg-btn').forEach((b) => b.addEventListener('click', () => {
+    $$('#libSortSeg .seg-btn').forEach((x) => x.classList.remove('active'));
+    b.classList.add('active');
+    libSort = b.dataset.libsort;
+    renderLibrary();
+  }));
+  $$('#libSeg .seg-btn').forEach((b) => b.addEventListener('click', () => {
+    $$('#libSeg .seg-btn').forEach((x) => x.classList.remove('active'));
+    b.classList.add('active');
+    libTab = b.dataset.lib;
+    renderLibrary();
+  }));
   $('#btnFilters').addEventListener('click', openFilters);
   $('#closeFilters').addEventListener('click', closeSheets);
   // chips dos filtros: seleção única por grupo
@@ -1936,10 +2001,27 @@ function clearNewFlag(mangaId) {
   }
 }
 
+function scrollTopHome() {
+  const c = $('#view-home').querySelector('.content');
+  if (c) c.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// mostra o botão "voltar ao topo" quando o usuário rola a home
+function bindToTop() {
+  const btn = $('#toTopBtn');
+  if (!btn) return;
+  const content = $('#view-home').querySelector('.content');
+  if (!content) return;
+  content.addEventListener('scroll', () => {
+    btn.classList.toggle('show', content.scrollTop > 600);
+  }, { passive: true });
+}
+
 /* ---------- boot ---------- */
 (async function boot() {
   bindGlobal();
   initExplore();
+  bindToTop();
   await renderHome();
   renderLibrary();
   renderProfile();
@@ -1976,3 +2058,7 @@ window.openFilters = openFilters;
 window.applyFilters = applyFilters;
 window.clearFilters = clearFilters;
 window.spotlightClick = spotlightClick;
+window.prevChapterNav = prevChapterNav;
+window.nextChapterNav = nextChapterNav;
+window.closeReader = closeReader;
+window.scrollTopHome = scrollTopHome;
