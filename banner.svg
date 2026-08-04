@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#070a12"/>
+      <stop offset="55%" stop-color="#0d1226"/>
+      <stop offset="100%" stop-color="#1a1f38"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffd60a" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ffd60a" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#ffd60a" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" fill="url(#bg)"/>
+  <rect y="320" width="1200" height="40" fill="url(#glow)"/>
+
+  <!-- moldura decorativa -->
+  <rect x="28" y="28" width="1144" height="304" rx="20" fill="none" stroke="#ffd60a" stroke-opacity="0.18" stroke-width="2"/>
+  <circle cx="1070" cy="120" r="120" fill="#ffd60a" fill-opacity="0.05"/>
+  <circle cx="1120" cy="180" r="70" fill="#ffd60a" fill-opacity="0.06"/>
+
+  <!-- emoji livro -->
+  <rect x="80" y="80" width="120" height="120" rx="24" fill="#ffd60a"/>
+  <text x="140" y="176" font-size="64" text-anchor="middle">📖</text>
+
+  <!-- título -->
+  <text x="240" y="150" font-family="Arial, sans-serif" font-size="76" font-weight="bold" fill="#ffffff">
+    manga<tspan fill="#ffd60a">nana</tspan>
+  </text>
+
+  <!-- slogan -->
+  <text x="244" y="200" font-family="Arial, sans-serif" font-size="26" fill="#8b93b8">Histórias que viram mundos</text>
+
+  <!-- badges -->
+  <g font-family="Arial, sans-serif" font-size="20" font-weight="bold">
+    <rect x="244" y="230" width="150" height="40" rx="20" fill="#ffd60a"/>
+    <text x="319" y="257" text-anchor="middle" fill="#141300">LEIA AGORA</text>
+    <rect x="410" y="230" width="180" height="40" rx="20" fill="#1c2239" stroke="#ffd60a" stroke-opacity="0.35"/>
+    <text x="500" y="257" text-anchor="middle" fill="#ffd60a">PT-BR 100%</text>
+  </g>
+
+  <!-- capinhas decorativas -->
+  <g>
+    <rect x="880" y="80" width="60" height="85" rx="8" fill="#2a2f4a"/>
+    <rect x="950" y="68" width="60" height="85" rx="8" fill="#3a2f5a"/>
+    <rect x="1020" y="90" width="60" height="85" rx="8" fill="#2f3a4a"/>
+    <rect x="890" y="95" width="30" height="8" rx="4" fill="#ffd60a" fill-opacity="0.85"/>
+    <rect x="960" y="83" width="30" height="8" rx="4" fill="#ffd60a" fill-opacity="0.6"/>
+    <rect x="1030" y="105" width="30" height="8" rx="4" fill="#ffd60a" fill-opacity="0.4"/>
+  </g>
+
+  <!-- estrelas -->
+  <text x="880" y="230" font-size="22">⭐</text>
+  <text x="920" y="230" font-size="22">⭐</text>
+  <text x="960" y="230" font-size="22">⭐</text>
+  <text x="1000" y="230" font-size="22">⭐</text>
+  <text x="1040" y="230" font-size="22" fill="#ffffff" opacity="0.35">☆</text>
+</svg>

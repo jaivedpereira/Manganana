@@ -1,89 +1,171 @@
-# 🍌 Manganana
+<div align="center">
 
-> *Histórias que viram mundos.*
+<img src="banner.svg" alt="Manganana" width="100%"/>
 
-Aplicativo web de leitura de mangá em **português** — catálogo real com a **API do MangaDex**, capas oficiais, informações completas, leitor de capítulos com rolagem vertical, favoritos e histórico.
+# 📖 Manganana
+
+**Histórias que viram mundos** — um leitor de mangá em **português brasileiro**, direto no navegador. Sem cadastro, sem download pesado, sem enrolação.
+
+<a href="https://manganana.vercel.app"><img src="https://img.shields.io/badge/🌐-Acessar%20o%20app-%23070a12?style=for-the-badge&labelColor=%23ffd60a&color=%23141a2e"/></a>
+<a href="https://vercel.com"><img src="https://img.shields.io/badge/deploy-Vercel-000?style=for-the-badge&logo=vercel&logoColor=white&labelColor=%23070a12"/></a>
+<a href="https://developer.mozilla.org/pt-BR/docs/Web/JavaScript"><img src="https://img.shields.io/badge/JS-Vanilla%20JS-%23ffd60a?style=for-the-badge&logo=javascript&logoColor=%23070a12&labelColor=%23070a12"/></a>
+<a href="https://www.mangadex.org"><img src="https://img.shields.io/badge/dados-MangaDex-2ea44f?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48dGV4dCB4PSI1MCIgeT0iNzAiIGZvbnQtc2l6ZT0iNjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPumjjiHmtYHvvIE8L3RleHQ%2BPC9zdmc%2B&labelColor=%23070a12"/></a>
+<a href="https://anilist.co"><img src="https://img.shields.io/badge/premium-AniList-%2300a6ff?style=for-the-badge&logoColor=white&labelColor=%23070a12"/></a>
+
+**⭐ 12.900+ mangás em PT-BR · Leitor completo · PWA instalável · Downloads offline**
+
+</div>
+
+---
 
 ## ✨ Funcionalidades
 
-- 🏠 **Início** — hero com destaque, mangás em alta, lançamentos recentes e "continue lendo"
-- 🔍 **Explorar** — busca em tempo real + filtros por gênero (tags do MangaDex)
-- 📚 **Biblioteca** — favoritos e histórico de leitura (salvos no navegador)
-- 📖 **Leitor completo** — capítulos em PT-BR com:
-  - Rolagem vertical ou modo página
-  - Qualidade original ou economia de dados
-  - Leitura RTL (direita → esquerda)
-  - Navegação entre capítulos (anterior/próximo + lista)
-  - Progresso salvo automaticamente
-- 🌗 Tema escuro (padrão) e claro
-- 📱 Layout mobile-first (estilo app com bottom nav)
-- 📲 **PWA instalável** — instala no celular como app nativo (ícone, tela cheia)
-- ⬇️ **Downloads offline** — baixe capítulos e leia sem internet
-- ⚡ Carregamento instantâneo via service worker
-- 🎛️ **Leitor turbinado** — fundo (escuro/sépia/claro), brilho, largura da página, zoom por duplo toque, modo webtoon contínuo, toque nas bordas
-- 🧹 **Qualidade de vida** — histórico de busca recente, botão "ir para página", marcar capítulo como lido, textos revisados em PT-BR
-- 🎠 **Home turbinada** — banner rotativo com **5 destaques** (auto-rotação, swipe e indicadores), botões "Ver tudo" funcionais com paginação, 5 categorias por gênero (Ação, Romance, Fantasia, Terror, Comédia) com **cards grandes estilo home em 2 colunas**
-- 🔄 **Atualização automática** — cache do service worker inteligente (HTML sempre novo + assets versionados), o app se atualiza sozinho sem precisar limpar cache
-- 🏆 **Ranking top 10** com medalhas (🥇🥈🥉) na home
-- 🎯 **Recomendações** — "Pra você" na home (baseado nos seus favoritos/histórico) + "Você também pode gostar" na página do mangá
-- 🔔 **Alertas de capítulo novo** — toast + badge "NOVO" na biblioteca quando um favorito ganha capítulo
-- 📤 **Compartilhar mangá** — botão no app (Web Share nativo) + link bonito `?manga=ID` que abre direto o mangá
-- 🔍 **Filtros avançados na busca** — status (publicando/completo/hiato), ano (2020–2026 ou antes de 2020) e ordenação (popularidade, recentes, ano, título A-Z)
-- ⭐ **Capa em destaque no perfil** — o mangá mais lido aparece em destaque com contagem de páginas
-- 📚 **Biblioteca turbinada** — busca dentro dos favoritos, ordenação (Recentes / A-Z / Mais lidos) e barra de progresso de leitura nos cards
-- ⬆️ **Botão voltar ao topo** na home (aparece ao rolar)
-- 📖 **Fim de capítulo** no leitor — bloco com "Próximo capítulo →", "← Anterior" e "Voltar ao mangá"
-- 🏷️ **Título dinâmico na aba** — mostra o mangá/capítulo atual no navegador
+### 🏠 Home turbinada
+- **Banner rotativo** com os 5 mais populares (auto-rotação, swipe e indicadores)
+- **Continue lendo** — retoma de onde você parou
+- **Ranking 🏆** — top 10 com medalhas 🥇🥈🥉
+- **"Pra você 🎯"** — recomendações baseadas no seu gosto (favoritos + histórico)
+- **5 categorias por gênero** (Ação, Romance, Fantasia, Terror, Comédia) com "Ver tudo" em grade de cards grandes
 
-## 🚀 Como rodar
+### 🔍 Busca poderosa
+- Pesquisa por título em **12.900+ mangás PT-BR**
+- **Filtros avançados**: status (publicando/completo/hiato), ano (2020–2026 ou antes), ordenação (popularidade, recentes, ano, A-Z)
+- Chips de gênero + **histórico de buscas recentes**
+- Seletor de **27 idiomas** por mangá + provedor alternativo **MangaPill**
+
+### 📖 Leitor completo
+- Modo **rolagem vertical** (webtoon) ou **páginas** (horizontal)
+- **Fundo** escuro / sépia / claro · **Brilho** 30–130% · **Largura** 50–150%
+- **Zoom** por duplo toque · **toque nas bordas** para navegar
+- **Modo webtoon contínuo** — rola e carrega o próximo capítulo sozinho
+- **Fim de capítulo elegante**: "Próximo capítulo →" · "← Anterior" · "Voltar ao mangá"
+- **Ir para página X** · **marcar como lido** · leitura **RTL** (direita → esquerda)
+- **Download offline** dos capítulos (PWA)
+
+### 💎 Dados premium (AniList)
+- **Nota média com estrelas** estilo streaming, status, capítulos, popularidade, favoritos
+- **Personagens principais** com foto e descrição (modal de detalhes)
+
+### 📚 Biblioteca & Perfil
+- Favoritos + histórico com **busca interna**, ordenação (Recentes/A-Z/Mais lidos) e **barra de progresso**
+- **Alertas de capítulo novo** — toast 🔔 + badge "NOVO" pulsando
+- **Capa em destaque** do seu mangá mais lido no perfil
+- Estatísticas: favoritos, lidos, páginas
+
+### 📤 Compartilhar
+- Botão de compartilhar com **Web Share nativo** (WhatsApp, Telegram…)
+- **Link bonito** `?manga=ID` que abre direto a página do mangá
+
+---
+
+## 🚀 Como rodar localmente
 
 ```bash
-cd manganana
-python -m http.server 4173
+# 1. Clone o repositório
+git clone https://github.com/jaivedpereira/Manganana.git
+cd Manganana
+
+# 2. Sirva com qualquer servidor estático (ex.: Python)
+python3 -m http.server 4173
+
+# 3. Abra no navegador
+# http://localhost:4173
 ```
 
-Abra `http://localhost:4173`
+> O app funciona 100% sem build — é HTML + CSS + JS puro. Os proxies serverless (`/api/*`) só são necessários no deploy (Vercel).
 
-## 📡 API utilizada
+---
 
-- **MangaDex API v5** — https://api.mangadex.org (provedor principal)
-  - Busca de mangás com tradução em pt-br (`availableTranslatedLanguage[]=pt-br`)
-  - Capas: `uploads.mangadex.org/covers/{mangaId}/{fileName}`
-  - Capítulos: feed do mangá (`/manga/{id}/feed`)
-  - Páginas: servidor at-home (`/at-home/server/{chapterId}`)
-- **AniList GraphQL** — https://graphql.anilist.co (dados premium: nota, popularidade, personagens)
-- **MangaPill** — https://mangapill.com (provedor secundário de capítulos via scraping serverless)
+## ☁️ Deploy
 
-## 🌐 Multi-provedor e idiomas
+O app roda na **Vercel** com `vercel.json` forçando estático puro:
 
-- **Seletor de idioma**: cada mangá mostra os idiomas disponíveis (pt-br, en, es-la, fr, ja...) com contagem de capítulos — toque para trocar
-- **MangaPill**: quando o MangaDex não tem o capítulo, o app oferece o MangaPill (capítulos em inglês) como alternativa
-- Proxies serverless no Vercel resolvem CORS e bloqueios de User-Agent:
-  - `/api/proxy` — dados MangaDex
-  - `/api/img` — imagens (MangaDex, AniList, MangaPill com Referer correto)
-  - `/api/anilist` — dados premium
-  - `/api/pill` — scraping MangaPill (busca, capítulos, páginas)
+```json
+{
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "cleanUrls": true
+}
+```
 
-> Obs: mangás licenciados (sem tradução pt-br no MangaDex) aparecem sem capítulos pt-br — troque o idioma ou use o MangaPill.
+```bash
+vercel --prod --yes
+```
+
+**Proxies serverless** (usados para burlar CORS/User-Agent):
+
+| Rota | Função |
+|------|--------|
+| `/api/proxy` | Busca de dados no MangaDex (UA de servidor) |
+| `/api/img` | Proxy de imagens (allowlist MangaDex + AniList + Kitsu) |
+| `/api/anilist` | Dados premium (nota, personagens, stats) |
+| `/api/pill` | Provedor alternativo MangaPill |
+| `/api/comick`, `/api/weeb` | Reservados (provedores inviáveis na investigação) |
+
+---
+
+## 🧰 Stack
+
+| Camada | Tecnologia |
+|--------|------------|
+| Frontend | HTML + CSS + JS puro (zero dependências) |
+| Dados | [MangaDex API v5](https://api.mangadex.org) (principal, PT-BR) + [MangaPill](https://mangapill.com) (alternativo) |
+| Premium | [AniList GraphQL](https://graphql.anilist.co) (nota, popularidade, personagens) |
+| Deploy | [Vercel](https://vercel.com) — estático + serverless functions |
+| Offline | Service Worker (PWA) + Cache API |
+
+---
 
 ## 📁 Estrutura
 
 ```
-manganana/
-├── index.html   # Estrutura do app (SPA mobile-first)
-├── styles.css   # Tema dark/amarelo, bottom nav, leitor
-├── app.js       # API MangaDex, render, leitor, favoritos
-└── vercel.json  # Deploy estático no Vercel
+Manganana/
+├── index.html          # UI completa (views, sheets, modais)
+├── styles.css          # Tema dark navy + amarelo vibrante
+├── app.js              # Toda a lógica do app
+├── sw.js               # Service worker (network-first + cache offline)
+├── banner.svg          # Banner do README
+├── manifest.webmanifest
+├── vercel.json
+└── api/
+    ├── proxy.js        # Proxy MangaDex
+    ├── img.js          # Proxy de imagens (allowlist)
+    ├── anilist.js      # Dados premium AniList
+    ├── pill.js         # Provedor alternativo MangaPill
+    ├── comick.js       # (reservado)
+    └── weeb.js         # (reservado)
 ```
-
-## 🛠️ Próximos passos
-
-- [ ] Login e sincronização de favoritos na nuvem
-- [ ] Leitura offline (PWA)
-- [ ] Social: seguir amigos e ver o que estão lendo
-- [ ] Chat entre leitores
-- [ ] Notificações de novos capítulos
 
 ---
 
-Feito para quem vive mil histórias. ✦
+## 🎨 Tema
+
+| | Cor |
+|---|---|
+| Fundo | `#070a12` (dark navy) |
+| Destaque | `#ffd60a` (amarelo vibrante) |
+| Painéis | `#141a2e` / `#1c2239` |
+| Texto | `#ffffff` / `#8b93b8` |
+
+Tema claro também disponível nas configurações ☀️
+
+---
+
+## 📜 Changelog
+
+- **v1.4.0** — QoL: biblioteca turbinada (busca/ordenação/progresso), voltar ao topo, fim de capítulo, título dinâmico, compartilhar com link bonito, filtros avançados, capa em destaque, ranking, recomendações, alertas de capítulo novo, cache resolvido (network-first + kill switch)
+- **v1.3.0** — QoL: histórico de busca, ir para página, marcar capítulo como lido, textos PT-BR
+- **v1.2.0** — Leitor turbinado: fundo/brilho/largura, webtoon contínuo, zoom, tap zones
+- **v1.1.0** — Dados premium AniList + personagens + tema claro
+- **v1.0.0** — Catálogo MangaDex, leitor, favoritos, downloads offline, PWA
+
+---
+
+<div align="center">
+
+**Feito com 💛 por [jaivedpereira](https://github.com/jaivedpereira)**
+
+*"Histórias que viram mundos"*
+
+</div>
