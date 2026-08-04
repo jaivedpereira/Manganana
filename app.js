@@ -1035,6 +1035,13 @@ function renderDetail(m, premium, langs) {
         <button class="btn-ghost ${faved ? 'faved' : ''}" id="detailFavBtn" onclick="toggleFav()">
           <svg viewBox="0 0 24 24" fill="${faved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
         </button>
+        <button class="btn-ghost" id="detailDlAll" title="Baixar todos os capítulos" onclick="downloadAllChapters()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        </button>
+      </div>
+      <div class="dl-progress" id="dlAllProgress" hidden>
+        <div class="dlp-bar"><i id="dlAllBar"></i></div>
+        <span id="dlAllLabel"></span>
       </div>
       ${desc ? `
         <p class="detail-desc ${desc.length > 280 ? 'clamped' : ''}" id="detailDesc">${esc(desc)}</p>
@@ -1305,14 +1312,53 @@ function renderReader() {
   const urls = r.provider === 'mangapill'
     ? r.pages.map((p) => px(p))
     : r.pages.map((p) => px(r.baseUrl + '/data/' + r.hash + '/' + p));
-  body.innerHTML = urls.map((src) =>
-    `<img class="page-img ${mode}" loading="lazy" src="${src}" alt="página" />`).join('') +
+  body.innerHTML = urls.map((src, i) => readerPageHTML(src, i, mode)).join('') +
     chapterEndHTML();
   applyReaderStyles();
   initReaderZoom();
   initTapZones();
   updateReaderNav();
   markProgress();
+  preloadAdjacentPages();
+}
+
+// HTML de cada página do leitor — com placeholder e pré-carregamento inteligente
+function readerPageHTML(src, i, mode) {
+  // 1ª página carrega com prioridade; demais com lazy (mas placeholder evita "tela branca")
+  const fp = i === 0 ? ' fetchpriority="high" ' : '';
+  const lazy = i === 0 ? '' : ' loading="lazy" ';
+  return `<div class="page-wrap" data-idx="${i}">
+    <div class="page-ph"></div>
+    <img class="page-img ${mode}" ${fp}${lazy} decoding="async" src="${src}" alt="página ${i + 1}" />
+  </div>`;
+}
+
+// pré-carrega a página atual + as 3 seguintes (acelera a leitura)
+function preloadAdjacentPages() {
+  const imgs = $$('#readerBody .page-img');
+  const idx = state.reader?.idx ?? 0;
+  for (let i = idx; i < Math.min(idx + 4, imgs.length); i++) {
+    const img = imgs[i];
+    if (img && !img.complete) {
+      const ph = img.parentElement?.querySelector('.page-ph');
+      if (ph) ph.style.display = 'block';
+      const clone = new Image();
+      clone.onload = () => { img.src = img.src; img.classList.add('loaded'); if (ph) ph.style.display = 'none'; };
+      clone.onerror = () => { if (ph) ph.style.display = 'none'; };
+      clone.src = img.src;
+    }
+  }
+}
+
+// esconde placeholder quando a imagem termina de carregar (delegação)
+function bindPageLoad() {
+  document.addEventListener('load', (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains('page-img')) {
+      e.target.classList.add('loaded');
+      const ph = e.target.parentElement?.querySelector('.page-ph');
+      if (ph) ph.style.display = 'none';
+    }
+  }, true);
 }
 
 function updateReaderNav() {
@@ -1343,10 +1389,10 @@ function pageJump() {
 function prevPage() { if (state.reader && state.reader.idx > 0) { state.reader.idx--; scrollToPage(); } }
 function nextPage() { if (state.reader && state.reader.idx < state.reader.pages.length - 1) { state.reader.idx++; scrollToPage(); } }
 function scrollToPage() {
-  const imgs = $$('#readerBody .page-img');
-  const target = imgs[state.reader.idx];
+  const wraps = $$('#readerBody .page-wrap');
+  const target = wraps[state.reader.idx];
   if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  updateReaderNav(); markProgress();
+  updateReaderNav(); markProgress(); preloadAdjacentPages();
 }
 
 function prevChapterNav() {
@@ -2195,6 +2241,60 @@ async function downloadChapter() {
   if (btn) btn.style.pointerEvents = '';
 }
 
+// baixa todos os capítulos do mangá (pt-br) em sequência, com progresso
+async function downloadAllChapters() {
+  const m = state.detail;
+  if (!m) return;
+  if (!('serviceWorker' in navigator)) { toast('Offline não disponível neste navegador'); return; }
+  const chs = state.chapters || [];
+  if (!chs.length) { toast('Nenhum capítulo disponível'); return; }
+  // ignora capítulos já baixados
+  const have = new Set(downloadsList().map((d) => d.id));
+  const todo = chs.filter((c) => !have.has(c.id) && !c._provider);
+  if (!todo.length) { toast('Todos os capítulos já estão baixados 📥'); return; }
+
+  const prog = $('#dlAllProgress');
+  const bar = $('#dlAllBar');
+  const label = $('#dlAllLabel');
+  if (prog) prog.hidden = false;
+  let done = 0;
+  const upd = () => {
+    if (bar) bar.style.width = Math.round((done / todo.length) * 100) + '%';
+    if (label) label.textContent = `Baixando capítulo ${done + 1} de ${todo.length}…`;
+  };
+  upd();
+
+  let okCount = 0;
+  for (const ch of todo) {
+    try {
+      const srv = await getChapterPages(ch.id);
+      const files = state.settings.quality === 'dataSaver' ? srv.chapter.dataSaver : srv.chapter.data;
+      const urls = files.map((p) => px(srv.baseUrl + '/data/' + srv.chapter.hash + '/' + p));
+      // baixa as páginas em lotes de 5
+      let doneP = 0, failP = 0;
+      for (let i = 0; i < urls.length; i += 5) {
+        const batch = urls.slice(i, i + 5);
+        const results = await Promise.allSettled(batch.map((u) => Promise.race([
+          fetch(u), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000)),
+        ])));
+        results.forEach((x) => { if (x.status === 'fulfilled' && x.value.ok) doneP++; else failP++; });
+      }
+      if (doneP > 0) {
+        const dl = { id: ch.id, mangaId: m.id, manga: mangaTitle(m), chapter: chapterNum(ch), urls, ts: Date.now() };
+        const list = downloadsList().filter((d) => d.id !== dl.id);
+        list.unshift(dl);
+        store('downloads', list.slice(0, 60));
+        okCount++;
+      }
+    } catch { /* capítulo sem páginas: segue */ }
+    done++;
+    upd();
+  }
+  if (prog) prog.hidden = true;
+  renderDownloads();
+  toast(okCount ? `✅ ${okCount} capítulos baixados!` : 'Nenhum capítulo pôde ser baixado');
+}
+
 async function deleteDownload(id) {
   const list = downloadsList();
   const dl = list.find((d) => d.id === id);
@@ -2206,25 +2306,81 @@ async function deleteDownload(id) {
   toast('Download removido');
 }
 
-// renderiza a lista de downloads na aba Perfil
+// renderiza a lista de downloads na aba Perfil — agrupada por mangá
 function renderDownloads() {
   const wrap = $('#downloadsWrap');
   if (!wrap) return;
   const list = downloadsList();
   if (!list.length) {
-    wrap.innerHTML = '<div class="empty"><p>Nenhum capítulo baixado ainda.<br>Abra um capítulo e toque em ⬇ para ler offline.</p></div>';
+    wrap.innerHTML = '<div class="empty"><p>Nenhum capítulo baixado ainda.<br>Abra um capítulo e toque em ⬇ ou use "baixar tudo" no mangá.</p></div>';
     return;
   }
-  wrap.innerHTML = list.map((d) => `
-    <div class="dl-item">
-      <div class="dl-info">
-        <strong>${esc(d.manga)}</strong>
-        <small>${esc(d.chapter)} • ${d.urls.length} páginas</small>
+  // agrupa por mangá
+  const groups = {};
+  list.forEach((d) => {
+    if (!groups[d.mangaId]) groups[d.mangaId] = { manga: d.manga, items: [] };
+    groups[d.mangaId].items.push(d);
+  });
+  wrap.innerHTML = Object.values(groups).map((g) => {
+    // capa: tenta achar no histórico/favoritos
+    const fav = state.favs.find((f) => f.id === g.items[0].mangaId);
+    const hist = state.history.find((h) => h.id === g.items[0].mangaId);
+    const cover = fav?.cover || hist?.cover || '';
+    const totalP = g.items.reduce((a, d) => a + d.urls.length, 0);
+    return `
+    <div class="dl-group">
+      <div class="dlg-head" onclick="openDetail('${g.items[0].mangaId}')">
+        ${cover ? `<div class="dlg-cover">${coverImg(cover, g.manga)}</div>` : `<div class="dlg-cover ph">📚</div>`}
+        <div class="dlg-info">
+          <strong>${esc(g.manga)}</strong>
+          <small>${g.items.length} capítulos • ${totalP} páginas</small>
+        </div>
+        <div class="rarrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
       </div>
-      <button class="dl-del" onclick="deleteDownload('${d.id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>
-    </div>`).join('');
+      <div class="dlg-chapters">
+        ${g.items.map((d) => `
+          <div class="dlg-ch" onclick="openDownloadedChapter('${d.id}')">
+            <span>${esc(d.chapter)}</span>
+            <small>${d.urls.length} pág.</small>
+            <button class="dl-del" onclick="event.stopPropagation(); deleteDownload('${d.id}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>`).join('')}
+      </div>
+      <button class="dlg-del-all" onclick="deleteMangaDownloads('${g.items[0].mangaId}')">Excluir todos</button>
+    </div>`;
+  }).join('');
+}
+
+// abre um capítulo baixado direto no leitor (offline)
+async function openDownloadedChapter(dlId) {
+  const dl = downloadsList().find((d) => d.id === dlId);
+  if (!dl) return;
+  try {
+    const m = await getManga(dl.mangaId);
+    state.detail = m;
+    state.chapters = []; // sem network pra lista completa
+    state.reader = {
+      manga: m, chapter: { id: dl.id, attributes: { chapter: dl.chapter } },
+      pages: dl.urls.map((u) => decodeURIComponent(u.split('url=')[1] || u)),
+      idx: 0, provider: 'offline',
+    };
+    showView('view-reader');
+    $('#bottomNav').classList.add('hidden');
+    renderReader();
+  } catch { toast('Não foi possível abrir o download'); }
+}
+
+// exclui todos os capítulos de um mangá
+function deleteMangaDownloads(mangaId) {
+  const list = downloadsList();
+  const toDel = list.filter((d) => d.mangaId === mangaId);
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    toDel.forEach((d) => navigator.serviceWorker.controller.postMessage({ type: 'DELETE_CHAPTER', urls: d.urls }));
+  }
+  store('downloads', list.filter((d) => d.mangaId !== mangaId));
+  renderDownloads();
+  toast('Downloads excluídos');
 }
 
 /* ---------- alertas de capítulo novo ---------- */
@@ -2293,6 +2449,7 @@ function bindToTop() {
 /* ---------- boot ---------- */
 (async function boot() {
   bindGlobal();
+  bindPageLoad();
   initExplore();
   bindToTop();
   await renderHome();
@@ -2322,6 +2479,9 @@ window.switchLang = switchLang;
 window.switchProvider = switchProvider;
 window.downloadChapter = downloadChapter;
 window.deleteDownload = deleteDownload;
+window.downloadAllChapters = downloadAllChapters;
+window.openDownloadedChapter = openDownloadedChapter;
+window.deleteMangaDownloads = deleteMangaDownloads;
 window.openReaderSettings = openReaderSettings;
 window.markChapterRead = markChapterRead;
 window.clearSearchHistory = clearSearchHistory;
