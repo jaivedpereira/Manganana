@@ -1912,12 +1912,27 @@ function renderMyProfile() {
     bio.textContent = myProfileData.bio;
     bio.hidden = false;
   } else { bio.hidden = true; }
-  if (myProfileData?.banner) {
-    $('#profileBanner').style.backgroundImage = `url(${myProfileData.banner})`;
-  } else {
-    $('#profileBanner').style.backgroundImage = '';
-  }
+  renderBanner(myProfileData?.banner || pendingBanner || '');
   renderListsSection();
+}
+
+// aplica o banner: GIF usa <img> (anima de verdade), imagem usa background
+function renderBanner(src) {
+  const banner = $('#profileBanner');
+  const gif = $('#profileBannerGif');
+  if (!banner || !gif) return;
+  const isGif = src && (src.startsWith('data:image/gif') || /\.gif(\?|$)/i.test(src));
+  if (isGif) {
+    // GIF: <img> real (background-image congela a animação em vários navegadores)
+    banner.style.backgroundImage = '';
+    gif.src = src;
+    gif.hidden = false;
+  } else {
+    // imagem comum: background-image
+    gif.hidden = true;
+    gif.removeAttribute('src');
+    banner.style.backgroundImage = src ? `url(${src})` : '';
+  }
 }
 
 // seção de listas no perfil
@@ -1959,21 +1974,33 @@ function toggleEditProfile(open) {
   if (!sh) return;
   $('#editBio').value = myProfileData?.bio || '';
   // preview do banner atual no editor
+  const src = pendingBanner || myProfileData?.banner || '';
+  renderBannerPreview(src);
+  sh.classList.add('open');
+  $('#sheetBackdrop').classList.add('open');
+}
+
+// preview do banner no editor (GIF anima via <img>)
+function renderBannerPreview(src) {
   const pv = $('#epBannerPreview');
+  const gif = $('#epPreviewGif');
   const txt = $('#epBannerText');
   const rm = $('#epBannerRemove');
-  if (pendingBanner || myProfileData?.banner) {
-    const src = pendingBanner || myProfileData.banner;
-    pv.style.backgroundImage = `url(${src})`;
-    txt.textContent = 'Banner selecionado ✓';
+  if (!pv || !txt || !rm) return;
+  const isGif = src && (src.startsWith('data:image/gif') || /\.gif(\?|$)/i.test(src));
+  if (src) {
+    pv.style.backgroundImage = isGif ? '' : `url(${src})`;
+    if (isGif) { gif.src = src; gif.hidden = false; }
+    else { gif.hidden = true; gif.removeAttribute('src'); }
+    txt.textContent = isGif ? 'GIF selecionado ✓' : 'Banner selecionado ✓';
     rm.hidden = false;
   } else {
     pv.style.backgroundImage = '';
+    gif.hidden = true;
+    gif.removeAttribute('src');
     txt.textContent = 'Toque para escolher um banner 📷';
     rm.hidden = true;
   }
-  sh.classList.add('open');
-  $('#sheetBackdrop').classList.add('open');
 }
 
 function closeEditSheet() {
@@ -1985,12 +2012,8 @@ function closeEditSheet() {
 function removeBanner() {
   pendingBanner = null;
   myProfileData = { ...(myProfileData || {}), banner: '' };
-  const pv = $('#epBannerPreview');
-  if (pv) { pv.style.backgroundImage = ''; }
-  const txt = $('#epBannerText');
-  if (txt) txt.textContent = 'Toque para escolher um banner 📷';
-  $('#epBannerRemove').hidden = true;
-  renderMyProfile();
+  renderBannerPreview('');
+  renderBanner('');
   toast('Banner removido — toque em Salvar para confirmar');
 }
 
@@ -2033,11 +2056,7 @@ function handleBannerUpload(file) {
     const rd = new FileReader();
     rd.onload = () => {
       pendingBanner = rd.result;
-      const pv = $('#epBannerPreview');
-      if (pv) pv.style.backgroundImage = `url(${pendingBanner})`;
-      const txt = $('#epBannerText');
-      if (txt) txt.textContent = 'GIF pronto ✓';
-      $('#epBannerRemove').hidden = false;
+      renderBannerPreview(pendingBanner);
       toast('GIF pronto! Toque em Salvar');
     };
     rd.onerror = () => toast('Não foi possível ler o GIF');
@@ -2060,12 +2079,7 @@ function handleBannerUpload(file) {
     ctx.drawImage(img, 0, 0, w, h);
     pendingBanner = cv.toDataURL('image/jpeg', 0.72);
     URL.revokeObjectURL(url);
-    // preview no editor
-    const pv = $('#epBannerPreview');
-    if (pv) pv.style.backgroundImage = `url(${pendingBanner})`;
-    const txt = $('#epBannerText');
-    if (txt) txt.textContent = 'Banner pronto ✓';
-    $('#epBannerRemove').hidden = false;
+    renderBannerPreview(pendingBanner);
     toast('Banner pronto! Toque em Salvar');
   };
   img.onerror = () => toast('Imagem inválida');
@@ -3043,6 +3057,7 @@ window.saveProfile = saveProfile;
 window.toggleEditProfile = toggleEditProfile;
 window.closeEditSheet = closeEditSheet;
 window.removeBanner = removeBanner;
+window.renderBanner = renderBanner;
 window.openReaderSettings = openReaderSettings;
 window.markChapterRead = markChapterRead;
 window.clearSearchHistory = clearSearchHistory;
