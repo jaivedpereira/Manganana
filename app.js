@@ -1038,6 +1038,9 @@ function renderDetail(m, premium, langs) {
         <button class="btn-ghost" id="detailDlAll" title="Baixar todos os capítulos" onclick="downloadAllChapters()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
         </button>
+        <button class="btn-ghost" id="detailListBtn" title="Adicionar à lista" onclick="openListPicker()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+        </button>
       </div>
       <div class="dl-progress" id="dlAllProgress" hidden>
         <div class="dlp-bar"><i id="dlAllBar"></i></div>
@@ -1071,6 +1074,7 @@ function renderDetail(m, premium, langs) {
 
   // carrega recomendações do mesmo gênero
   loadDetailRecs(m);
+  renderDetailListState();
 
   const d = $('#detailDesc');
   if (d) $('#descToggle')?.addEventListener('click', () => {
@@ -1537,7 +1541,7 @@ async function sendReply(parentId) {
   try {
     const token = await window.Clerk.session?.getToken();
     if (!token) { toast('Sessão expirada — recarregue a página'); return; }
-    const r = await fetch('/api/comments/reply', {
+    const r = await fetch('/api/comments?reply=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ parent: parentId, text }),
@@ -1560,7 +1564,7 @@ async function likeComment(id, btn) {
   try {
     const token = await window.Clerk.session?.getToken();
     if (!token) { toast('Sessão expirada — recarregue a página'); return; }
-    const r = await fetch('/api/comments/like', {
+    const r = await fetch('/api/comments?like=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ id }),
@@ -1878,6 +1882,147 @@ function renderProfile() {
   $('#statPages').textContent = pages;
   renderSpotlight();
   renderVisits();
+  renderMyProfile();
+}
+
+// ===== perfil rico (banner, bio, listas) =====
+let myProfileData = null; // {bio, banner} do usuário logado
+
+function renderMyProfile() {
+  const isLogged = !!syncUser;
+  $('#btnEditBanner').hidden = !isLogged;
+  $('#btnEditProfile').hidden = !isLogged;
+  // avatar (foto do Google ou inicial)
+  const av = $('#profileAvatar');
+  if (isLogged && syncUser.image) av.innerHTML = `<img src="${esc(syncUser.image)}" alt="" />`;
+  else av.textContent = (syncUser?.name || 'L')[0];
+  // nome/email
+  $('#profileName').textContent = syncUser?.name || 'Leitor';
+  $('#profileEmail').textContent = syncUser?.email || 'Leitor do Manganana';
+  // tags de listas
+  const tags = $('#profileTags');
+  const lists = myLists();
+  const counts = Object.entries(LIST_NAMES)
+    .filter(([k]) => (lists[k] || []).length)
+    .map(([k, label]) => `<span class="ptag">${label} ${lists[k].length}</span>`);
+  tags.innerHTML = counts.join('');
+  // bio + banner
+  const bio = $('#profileBio');
+  if (myProfileData?.bio) {
+    bio.textContent = myProfileData.bio;
+    bio.hidden = false;
+  } else { bio.hidden = true; }
+  if (myProfileData?.banner) {
+    $('#profileBanner').style.backgroundImage = `url(${myProfileData.banner})`;
+  } else {
+    $('#profileBanner').style.backgroundImage = '';
+  }
+  renderListsSection();
+}
+
+// seção de listas no perfil
+function renderListsSection() {
+  let wrap = $('#listsWrap');
+  if (!wrap) {
+    const content = $('#view-profile .content');
+    if (!content) return;
+    const anchor = $('#visitCount') || $('#profileBio');
+    wrap = document.createElement('div');
+    wrap.id = 'listsWrap';
+    content.insertBefore(wrap, anchor ? anchor.nextSibling : null);
+  }
+  const lists = myLists();
+  const any = Object.values(lists).some((l) => l.length);
+  if (!any) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `
+    <div class="lists-head"><h2>Minhas listas 📚</h2></div>
+    ${Object.entries(LIST_NAMES).filter(([k]) => (lists[k] || []).length).map(([k, label]) => {
+      const items = lists[k].slice(0, 6);
+      return `<div class="list-section">
+        <div class="list-title"><span>${label}</span><small>${lists[k].length}</small></div>
+        <div class="list-row">${items.map((it) => `
+          <div class="list-mini" onclick="openDetail('${it.id}')">
+            ${it.cover ? `<img src="${esc(it.cover)}" alt="" />` : `<div class="lm-ph">${esc((it.title || '?')[0])}</div>`}
+            <span>${esc(it.title || '')}</span>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+    `;
+}
+
+// abre/fecha o editor de perfil
+function toggleEditProfile(open) {
+  $('#editProfileBox').hidden = !open;
+  $('#btnEditProfile').hidden = open;
+  if (open) $('#editBio').value = myProfileData?.bio || '';
+}
+
+// salva bio (+ banner se tiver pendente)
+async function saveProfile() {
+  if (!syncUser) return;
+  const bio = $('#editBio').value.trim();
+  const body = { bio };
+  if (pendingBanner) { body.banner = pendingBanner; }
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) { toast('Sessão expirada — recarregue a página'); return; }
+    const r = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!j.ok) { toast('Erro: ' + (j.error || 'não foi possível salvar')); return; }
+    myProfileData = { ...(myProfileData || {}), bio };
+    if (pendingBanner) { myProfileData.banner = pendingBanner; pendingBanner = null; }
+    toggleEditProfile(false);
+    renderMyProfile();
+    toast('Perfil salvo! ✨');
+  } catch { toast('Erro de rede — tente de novo'); }
+}
+
+let pendingBanner = null;
+
+// upload do banner (comprime via canvas p/ caber no banco)
+function handleBannerUpload(file) {
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) { toast('Imagem muito grande (máx 8MB)'); return; }
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+    // redimensiona para máx 1000px de largura, JPEG q0.72
+    const MAX = 1000;
+    const scale = Math.min(1, MAX / img.width);
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#070a12';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    pendingBanner = cv.toDataURL('image/jpeg', 0.72);
+    URL.revokeObjectURL(url);
+    // preview
+    $('#profileBanner').style.backgroundImage = `url(${pendingBanner})`;
+    toast('Banner pronto! Toque em "Salvar" para aplicar');
+  };
+  img.onerror = () => toast('Imagem inválida');
+  img.src = url;
+}
+
+// carrega o perfil salvo do usuário logado
+async function loadMyProfile() {
+  if (!syncUser) return;
+  try {
+    const r = await fetch('/api/profile?user=' + encodeURIComponent(syncUser.id));
+    const j = await r.json();
+    if (j.ok && j.user) {
+      myProfileData = { bio: j.user.bio || '', banner: j.user.banner || '' };
+      renderMyProfile();
+    }
+  } catch { /* offline: mantém o que tem */ }
 }
 
 // capa em destaque: o mangá mais lido (maior contagem de páginas)
@@ -1953,13 +2098,15 @@ async function initClerk() {
     window.Clerk.addListener(({ user }) => {
       syncUser = user ? { id: user.id, name: user.fullName || 'Leitor', email: user.primaryEmailAddress?.emailAddress || '', image: user.imageUrl || '' } : null;
       renderAccount();
-      if (user) pullSync();
+      renderMyProfile();
+      if (user) { pullSync(); loadMyProfile(); }
     });
     syncUser = window.Clerk.user ? { id: window.Clerk.user.id, name: window.Clerk.user.fullName || 'Leitor', email: window.Clerk.user.primaryEmailAddress?.emailAddress || '', image: window.Clerk.user.imageUrl || '' } : null;
     renderAccount();
     // se já está logado (reload da página), puxa/sincroniza de qualquer forma
     if (syncUser) {
       pullSync();
+      loadMyProfile();
       setTimeout(pushSync, 2500); // garantia: sobe os dados locais
     }
   } catch (e) {
@@ -2073,6 +2220,7 @@ async function pushSync() {
     newChapters: load('newChapters', {}),
     settings: state.settings,
     filters: state.filters,
+    lists: myLists(),
   };
   try {
     const token = await window.Clerk.session?.getToken();
@@ -2164,6 +2312,21 @@ function mergeData(cloud) {
     store('filters', state.filters);
   }
 
+  // listas: une por mangá (mais recente vence)
+  if (cloud.lists) {
+    const local = myLists();
+    const out = { lendo: [], vouLer: [], completo: [], dropei: [] };
+    Object.keys(out).forEach((l) => {
+      const items = [...(local[l] || []), ...(cloud.lists[l] || [])];
+      const byId = {};
+      items.forEach((it) => {
+        if (!byId[it.id] || (it.ts || 0) > (byId[it.id].ts || 0)) byId[it.id] = it;
+      });
+      out[l] = Object.values(byId).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    });
+    store('lists', out);
+  }
+
   renderHome();
   renderLibrary();
   renderProfile();
@@ -2227,6 +2390,12 @@ function bindGlobal() {
   $('#btnGoogleLogin').addEventListener('click', googleLogin);
   $('#btnLogout').addEventListener('click', logout);
   $('#btnSyncNow').addEventListener('click', syncNow);
+  $('#btnEditBanner').addEventListener('click', () => $('#bannerInput').click());
+  $('#bannerInput').addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) handleBannerUpload(e.target.files[0]);
+    e.target.value = '';
+  });
+  $('#btnEditProfile').addEventListener('click', () => toggleEditProfile(true));
   $('#photoInput').addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) changeProfilePhoto(e.target.files[0]);
     e.target.value = '';
@@ -2625,6 +2794,83 @@ function deleteMangaDownloads(mangaId) {
   toast('Downloads excluídos');
 }
 
+/* ---------- listas personalizadas ---------- */
+const LIST_NAMES = { lendo: '📖 Lendo', vouLer: '📌 Vou ler', completo: '✅ Completo', dropei: '🗑️ Dropei' };
+
+// pega as listas do usuário (local + nuvem)
+function myLists() { return load('lists', { lendo: [], vouLer: [], completo: [], dropei: [] }); }
+function saveLists(l) {
+  store('lists', l);
+  if (syncUser) schedulePush();
+}
+
+// abre o picker de lista no detail
+function openListPicker() {
+  if (!syncUser) { toast('Entre com sua conta para criar listas'); switchTab('profile'); return; }
+  const m = state.detail;
+  if (!m) return;
+  const lists = myLists();
+  const inWhich = Object.keys(lists).find((l) => lists[l].some((x) => x.id === m.id));
+  let sh = $('#listSheet');
+  if (!sh) {
+    sh = document.createElement('div');
+    sh.id = 'listSheet';
+    sh.className = 'sheet list-sheet';
+    document.body.appendChild(sh);
+    sh.addEventListener('click', (e) => { if (e.target === sh) sh.classList.remove('open'); });
+  }
+  sh.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><strong>${esc(m.title || 'Mangá')}</strong><button class="icon-btn" onclick="$('#listSheet').classList.remove('open')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="sheet-body" style="padding:8px 16px 24px">
+      ${Object.entries(LIST_NAMES).map(([key, label]) => {
+        const active = inWhich === key;
+        return `<button class="list-pick ${active ? 'active' : ''}" onclick="setMangaList('${key}')">
+          <span>${label}</span><small>${active ? '✓' : ''}</small>
+        </button>`;
+      }).join('')}
+      ${inWhich ? `<button class="list-remove" onclick="setMangaList('')">Remover de todas as listas</button>` : ''}
+    </div>`;
+  sh.classList.add('open');
+}
+
+// adiciona/remove o mangá atual de uma lista
+async function setMangaList(listName) {
+  const m = state.detail;
+  if (!m || !syncUser) return;
+  const lists = myLists();
+  const clean = {};
+  Object.keys(lists).forEach((l) => { clean[l] = lists[l].filter((x) => x.id !== m.id); });
+  if (listName && LIST_NAMES[listName]) {
+    clean[listName].unshift({ id: m.id, title: m.title || mangaTitle(m), cover: m.cover || '', ts: Date.now() });
+  }
+  saveLists(clean);
+  $('#listSheet')?.classList.remove('open');
+  toast(listName ? `Adicionado em ${LIST_NAMES[listName].split(' ')[1]} 📚` : 'Removido das listas');
+  // sincroniza na nuvem
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) return;
+    await fetch('/api/profile?list=1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ mangaId: m.id, list: listName, title: m.title || mangaTitle(m), cover: m.cover || '' }),
+    });
+  } catch { /* offline ok — push cobre depois */ }
+  renderDetailListState();
+}
+
+// marca visual do botão de lista no detail
+function renderDetailListState() {
+  const m = state.detail;
+  const btn = $('#detailListBtn');
+  if (!btn || !m) return;
+  const lists = myLists();
+  const inWhich = Object.keys(lists).find((l) => lists[l].some((x) => x.id === m.id));
+  btn.classList.toggle('faved', !!inWhich);
+  btn.title = inWhich ? `Na lista: ${LIST_NAMES[inWhich]}` : 'Adicionar à lista';
+}
+
 /* ---------- alertas de capítulo novo ---------- */
 // verifica se os favoritos têm capítulos novos (rodado no boot, uma vez por sessão)
 async function checkNewChapters() {
@@ -2731,6 +2977,10 @@ window.likeComment = likeComment;
 window.sendReply = sendReply;
 window.toggleReply = toggleReply;
 window.openUserProfile = openUserProfile;
+window.openListPicker = openListPicker;
+window.setMangaList = setMangaList;
+window.saveProfile = saveProfile;
+window.toggleEditProfile = toggleEditProfile;
 window.openReaderSettings = openReaderSettings;
 window.markChapterRead = markChapterRead;
 window.clearSearchHistory = clearSearchHistory;
