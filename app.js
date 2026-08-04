@@ -1320,6 +1320,7 @@ function renderReader() {
   updateReaderNav();
   markProgress();
   preloadAdjacentPages();
+  loadComments();
 }
 
 // HTML de cada página do leitor — com placeholder e pré-carregamento inteligente
@@ -1415,13 +1416,15 @@ function closeReader() {
 }
 
 /* ---------- leitor turbinado ---------- */
-// bloco "fim do capítulo" com botões de navegação
+// bloco "fim do capítulo" com botões de navegação + comentários
 function chapterEndHTML() {
   const chs = state.chapters || [];
   const cur = state.reader?.chapter?.id;
   const idx = chs.findIndex((c) => c.id === cur);
   const hasNext = idx < chs.length - 1;
   const hasPrev = idx > 0;
+  const mangaId = state.reader?.manga?.id || state.detail?.id || '';
+  const chapterId = cur || '';
   return `
   <div class="chapter-end">
     <div class="ce-divider"><span>Fim do capítulo</span></div>
@@ -1431,7 +1434,112 @@ function chapterEndHTML() {
       ${hasNext ? `<button class="ce-btn main" onclick="nextChapterNav()">Próximo capítulo →</button>` : '<span class="muted" style="font-size:12px">Último capítulo disponível</span>'}
     </div>
     <button class="ce-btn ghost" onclick="closeReader()">Voltar ao mangá</button>
+  </div>
+  <div class="comments-block" data-manga="${esc(mangaId)}" data-chapter="${esc(chapterId)}">
+    <div class="cb-head"><h3>💬 Comentários</h3><span class="cb-count" id="cbCount"></span></div>
+    <div class="cb-list" id="cbList"><div class="cb-loading">Carregando comentários…</div></div>
+    <div class="cb-form">
+      ${syncUser
+        ? `<div class="cb-input-row">
+             <textarea id="cbText" rows="2" maxlength="500" placeholder="Comente este capítulo…"></textarea>
+             <button class="cb-send" id="cbSend" onclick="sendComment()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
+           </div>`
+        : `<button class="cb-login" onclick="switchTab('profile')">Entrar com Google para comentar</button>`}
+    </div>
   </div>`;
+}
+
+// carrega os comentários do capítulo atual
+async function loadComments() {
+  const block = $('#readerBody .comments-block');
+  if (!block) return;
+  const manga = block.dataset.manga;
+  const chapter = block.dataset.chapter;
+  if (!manga || !chapter) return;
+  const list = $('#cbList');
+  const count = $('#cbCount');
+  if (list) list.innerHTML = '<div class="cb-loading">Carregando comentários…</div>';
+  try {
+    const r = await fetch(`/api/comments?manga=${encodeURIComponent(manga)}&chapter=${encodeURIComponent(chapter)}`);
+    const j = await r.json();
+    if (!j.ok || !j.comments) throw new Error('erro');
+    const c = j.comments;
+    if (count) count.textContent = c.length ? `(${c.length})` : '';
+    if (!list) return;
+    if (!c.length) {
+      list.innerHTML = '<div class="cb-empty">Nenhum comentário ainda — seja o primeiro! 🎉</div>';
+      return;
+    }
+    list.innerHTML = c.map((cm) => `
+      <div class="cb-item">
+        ${cm.user.image ? `<img class="cb-avatar" src="${esc(cm.user.image)}" alt="" />` : `<div class="cb-avatar ph">${esc((cm.user.name || 'L')[0])}</div>`}
+        <div class="cb-body">
+          <div class="cb-meta"><strong>${esc(cm.user.name)}</strong><small>${timeAgo(cm.ts)}</small></div>
+          <p>${esc(cm.text)}</p>
+        </div>
+        ${syncUser && cm.user.id === syncUser.id ? `<button class="cb-del" onclick="deleteComment('${cm.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
+      </div>`).join('');
+  } catch {
+    if (list) list.innerHTML = '<div class="cb-empty">Não foi possível carregar os comentários.</div>';
+  }
+}
+
+// envia um comentário no capítulo atual
+async function sendComment() {
+  if (!syncUser) { toast('Entre com sua conta primeiro'); return; }
+  const textEl = $('#cbText');
+  const text = textEl?.value.trim();
+  if (!text) { toast('Escreva algo antes de enviar'); return; }
+  const block = $('#readerBody .comments-block');
+  if (!block) return;
+  const btn = $('#cbSend');
+  if (btn) btn.disabled = true;
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) { toast('Sessão expirada — recarregue a página'); return; }
+    const r = await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ manga: block.dataset.manga, chapter: block.dataset.chapter, text }),
+    });
+    const j = await r.json();
+    if (!j.ok) { toast('Erro: ' + (j.error || 'não foi possível comentar')); return; }
+    if (textEl) textEl.value = '';
+    toast('Comentário enviado! 💬');
+    loadComments();
+  } catch {
+    toast('Erro de rede — tente de novo');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// apaga um comentário próprio
+async function deleteComment(id) {
+  if (!syncUser) return;
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) return;
+    const r = await fetch('/api/comments?id=' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    const j = await r.json();
+    if (j.ok) { toast('Comentário removido'); loadComments(); }
+  } catch { /* ignora */ }
+}
+
+// formata tempo relativo ("há 5 min")
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'agora';
+  const m = Math.floor(s / 60);
+  if (m < 60) return 'há ' + m + ' min';
+  const h = Math.floor(m / 60);
+  if (h < 24) return 'há ' + h + 'h';
+  const d = Math.floor(h / 24);
+  if (d < 30) return 'há ' + d + 'd';
+  return new Date(ts).toLocaleDateString('pt-BR');
 }
 
 // aplica fundo + brilho + largura no leitor
@@ -2482,6 +2590,9 @@ window.deleteDownload = deleteDownload;
 window.downloadAllChapters = downloadAllChapters;
 window.openDownloadedChapter = openDownloadedChapter;
 window.deleteMangaDownloads = deleteMangaDownloads;
+window.sendComment = sendComment;
+window.deleteComment = deleteComment;
+window.loadComments = loadComments;
 window.openReaderSettings = openReaderSettings;
 window.markChapterRead = markChapterRead;
 window.clearSearchHistory = clearSearchHistory;

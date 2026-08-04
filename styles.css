@@ -170,6 +170,32 @@ button:active svg{transform:scale(.9)}
 .dlp-bar i{display:block;height:100%;background:var(--accent);border-radius:6px;transition:width .3s}
 .dl-progress span{display:block;font-size:11px;color:var(--muted);margin-top:8px}
 
+/* ===== COMENTÁRIOS ===== */
+.comments-block{padding:18px 16px 30px;max-width:var(--page-w,100%);margin:0 auto;width:100%}
+.cb-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.cb-head h3{font-size:15px}
+.cb-count{font-size:11px;color:var(--muted);font-weight:600}
+.cb-list{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.cb-loading,.cb-empty{font-size:12px;color:var(--muted);text-align:center;padding:18px 0}
+.cb-item{display:flex;gap:10px}
+.cb-avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:none;background:linear-gradient(135deg,#3d4a75,#232c4a)}
+.cb-avatar.ph{display:grid;place-items:center;font-size:13px;font-weight:800;color:#cdd6f2}
+.cb-body{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.cb-meta{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.cb-meta strong{font-size:12px}
+.cb-meta small{font-size:10px;color:var(--muted)}
+.cb-body p{font-size:12.5px;line-height:1.5;color:#d4daf0;word-break:break-word}
+.cb-del{width:28px;height:28px;border-radius:8px;background:var(--panel2);color:#ff6b6b;display:grid;place-items:center;flex:none;align-self:center}
+.cb-del svg{width:14px;height:14px}
+.cb-form{margin-top:4px}
+.cb-input-row{display:flex;gap:8px;align-items:flex-end}
+.cb-input-row textarea{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text);font-size:12.5px;resize:none;outline:none;min-height:42px;font-family:inherit}
+.cb-input-row textarea:focus{border-color:var(--accent)}
+.cb-send{width:42px;height:42px;border-radius:12px;background:var(--accent);color:#141300;display:grid;place-items:center;flex:none}
+.cb-send:disabled{opacity:.5}
+.cb-send svg{width:18px;height:18px}
+.cb-login{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:600;padding:12px;border-radius:12px}
+
 /* ===== LEITOR: placeholder de carregamento ===== */
 .page-wrap{position:relative;margin:0 auto}
 .page-ph{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(100deg,var(--panel) 40%,var(--panel2) 50%,var(--panel) 60%);background-size:200% 100%;animation:phshimmer 1.2s infinite;border-radius:8px}
