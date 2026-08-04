@@ -196,6 +196,26 @@ button:active svg{transform:scale(.9)}
 .cb-send svg{width:18px;height:18px}
 .cb-login{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:600;padding:12px;border-radius:12px}
 
+/* ===== social: curtidas, respostas, perfil ===== */
+.cb-avatar-wrap{cursor:pointer;flex:none}
+.cb-avatar.sm{width:26px;height:26px;font-size:11px}
+.cb-name{cursor:pointer}
+.cb-name:active{color:var(--accent)}
+.cb-actions{display:flex;align-items:center;gap:14px;margin-top:7px}
+.cb-like{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:11.5px;font-weight:600}
+.cb-like svg{width:15px;height:15px}
+.cb-like.liked{color:#ff6b6b}
+.cb-reply-btn{font-size:11.5px;color:var(--accent);font-weight:700}
+.cb-replies{margin-top:10px;padding-left:10px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.cb-item.reply .cb-body{background:var(--panel2)}
+.cb-reply-form{display:flex;gap:8px;margin-top:10px}
+.cb-reply-form input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--text);font-size:12px;outline:none;font-family:inherit}
+.cb-reply-form input:focus{border-color:var(--accent)}
+.cb-send.sm{width:34px;height:34px;border-radius:10px}
+.cb-send.sm svg{width:15px;height:15px}
+.user-sheet-avatar{width:76px;height:76px;border-radius:50%;object-fit:cover;background:linear-gradient(135deg,#3d4a75,#232c4a)}
+.user-sheet-avatar.ph{display:grid;place-items:center;font-size:30px;font-weight:800;color:#cdd6f2}
+
 /* ===== LEITOR: placeholder de carregamento ===== */
 .page-wrap{position:relative;margin:0 auto}
 .page-ph{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(100deg,var(--panel) 40%,var(--panel2) 50%,var(--panel) 60%);background-size:200% 100%;animation:phshimmer 1.2s infinite;border-radius:8px}

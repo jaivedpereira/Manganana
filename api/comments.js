@@ -1,11 +1,13 @@
 // ===== API de comentários do Manganana =====
-//   GET  /api/comments?manga=ID&chapter=ID    → lista comentários do capítulo (público)
-//   POST /api/comments                        → cria comentário (auth Clerk)
-//   DELETE /api/comments?id=COMMENT_ID        → apaga próprio comentário (auth Clerk)
-// Payload POST: { manga, chapter, text }
+//   GET  /api/comments?manga=ID&chapter=ID     → lista comentários (público)
+//   POST /api/comments                         → cria comentário (auth)
+//   POST /api/comments/reply                   → responde comentário (auth) {parent, text}
+//   POST /api/comments/like                    → curtir/descurtir (auth) {id}
+//   DELETE /api/comments?id=ID                 → apaga comentário (auth, dono)
+//   GET  /api/user?id=ID                       → perfil público de um usuário
 
 const { createClerkClient, verifyToken } = require('@clerk/backend');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY,
@@ -38,7 +40,6 @@ async function authUserId(req) {
   }
 }
 
-// busca nome/foto do usuário no Clerk
 async function userProfile(userId) {
   try {
     const u = await clerk.users.getUser(userId);
@@ -61,6 +62,14 @@ module.exports = async function handler(req, res) {
     const client = await getMongo();
     const col = client.db('manganana').collection('comments');
 
+    // GET /api/user?id=... → perfil público
+    if (req.method === 'GET' && req.query.user) {
+      const p = await userProfile(req.query.user);
+      // stats: nº de comentários do usuário
+      const count = await col.countDocuments({ userId: req.query.user });
+      return res.json({ ok: true, user: { id: req.query.user, ...p, comments: count } });
+    }
+
     // GET: lista comentários (público, sem auth)
     if (req.method === 'GET') {
       const manga = req.query.manga || '';
@@ -69,10 +78,9 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ ok: false, error: 'manga e chapter são obrigatórios' });
       }
       const docs = await col.find({ manga, chapter })
-        .sort({ ts: -1 })
+        .sort({ ts: 1 })
         .limit(100)
         .toArray();
-      // busca nome/foto de cada autor (limite de 100 ok)
       const out = [];
       for (const d of docs) {
         const p = await userProfile(d.userId);
@@ -80,8 +88,15 @@ module.exports = async function handler(req, res) {
           id: d._id.toString(),
           text: d.text,
           ts: d.ts,
+          likes: d.likes || [],
           user: { id: d.userId, name: p.name, image: p.image },
+          replies: d.replies || [],
         });
+        // enriquece respostas com nome/foto
+        for (const rp of out[out.length - 1].replies) {
+          const rpUser = await userProfile(rp.userId);
+          rp.user = { id: rp.userId, name: rpUser.name, image: rpUser.image };
+        }
       }
       return res.json({ ok: true, comments: out });
     }
@@ -92,7 +107,7 @@ module.exports = async function handler(req, res) {
     }
 
     // POST: cria comentário
-    if (req.method === 'POST') {
+    if (req.method === 'POST' && !req.query.reply && !req.query.like) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
       const text = String(body.text || '').trim();
       const manga = String(body.manga || '').trim();
@@ -103,33 +118,68 @@ module.exports = async function handler(req, res) {
       if (text.length > 500) {
         return res.status(413).json({ ok: false, error: 'Comentário muito longo (máx 500)' });
       }
-      // anti-spam: no máx 5 comentários por minuto por usuário
       const minuteAgo = Date.now() - 60000;
       const recent = await col.countDocuments({ userId, ts: { $gt: minuteAgo } });
       if (recent >= 5) {
         return res.status(429).json({ ok: false, error: 'Muito rápido! Espere um pouco.' });
       }
-      const doc = {
-        userId, manga, chapter, text,
-        ts: Date.now(),
-      };
+      const doc = { userId, manga, chapter, text, ts: Date.now(), likes: [], replies: [] };
       const r = await col.insertOne(doc);
       const p = await userProfile(userId);
       return res.json({
         ok: true,
         comment: {
           id: r.insertedId.toString(),
-          text, ts: doc.ts,
+          text, ts: doc.ts, likes: [], replies: [],
           user: { id: userId, name: p.name, image: p.image },
         },
       });
+    }
+
+    // POST /api/comments/reply → responde um comentário
+    if (req.method === 'POST' && req.query.reply) {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const text = String(body.text || '').trim();
+      const parentId = String(body.parent || '').trim();
+      if (!text || !parentId) {
+        return res.status(400).json({ ok: false, error: 'text e parent são obrigatórios' });
+      }
+      if (text.length > 300) {
+        return res.status(413).json({ ok: false, error: 'Resposta muito longa (máx 300)' });
+      }
+      let oid;
+      try { oid = new ObjectId(parentId); } catch { return res.status(400).json({ ok: false, error: 'parent inválido' }); }
+      const parent = await col.findOne({ _id: oid });
+      if (!parent) return res.status(404).json({ ok: false, error: 'Comentário não encontrado' });
+      const rp = { userId, text, ts: Date.now() };
+      await col.updateOne({ _id: oid }, { $push: { replies: rp } });
+      const p = await userProfile(userId);
+      rp.user = { id: userId, name: p.name, image: p.image };
+      return res.json({ ok: true, reply: rp });
+    }
+
+    // POST /api/comments/like → curtir/descurtir
+    if (req.method === 'POST' && req.query.like) {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const id = String(body.id || '').trim();
+      if (!id) return res.status(400).json({ ok: false, error: 'id é obrigatório' });
+      let oid;
+      try { oid = new ObjectId(id); } catch { return res.status(400).json({ ok: false, error: 'id inválido' }); }
+      const doc = await col.findOne({ _id: oid });
+      if (!doc) return res.status(404).json({ ok: false, error: 'Comentário não encontrado' });
+      const likes = doc.likes || [];
+      const has = likes.includes(userId);
+      await col.updateOne(
+        { _id: oid },
+        has ? { $pull: { likes: userId } } : { $addToSet: { likes: userId } }
+      );
+      return res.json({ ok: true, liked: !has, count: has ? likes.length - 1 : likes.length + 1 });
     }
 
     // DELETE: apaga comentário (só o dono)
     if (req.method === 'DELETE') {
       const id = req.query.id || '';
       if (!id) return res.status(400).json({ ok: false, error: 'id é obrigatório' });
-      const { ObjectId } = require('mongodb');
       let oid;
       try { oid = new ObjectId(id); } catch { return res.status(400).json({ ok: false, error: 'id inválido' }); }
       const r = await col.deleteOne({ _id: oid, userId });

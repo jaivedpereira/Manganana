@@ -1470,18 +1470,152 @@ async function loadComments() {
       list.innerHTML = '<div class="cb-empty">Nenhum comentário ainda — seja o primeiro! 🎉</div>';
       return;
     }
-    list.innerHTML = c.map((cm) => `
-      <div class="cb-item">
-        ${cm.user.image ? `<img class="cb-avatar" src="${esc(cm.user.image)}" alt="" />` : `<div class="cb-avatar ph">${esc((cm.user.name || 'L')[0])}</div>`}
-        <div class="cb-body">
-          <div class="cb-meta"><strong>${esc(cm.user.name)}</strong><small>${timeAgo(cm.ts)}</small></div>
-          <p>${esc(cm.text)}</p>
-        </div>
-        ${syncUser && cm.user.id === syncUser.id ? `<button class="cb-del" onclick="deleteComment('${cm.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
-      </div>`).join('');
+    list.innerHTML = c.map((cm) => commentItemHTML(cm)).join('');
   } catch {
     if (list) list.innerHTML = '<div class="cb-empty">Não foi possível carregar os comentários.</div>';
   }
+}
+
+// HTML de um comentário (com curtir, responder, apagar e respostas)
+function commentItemHTML(cm) {
+  const myId = syncUser?.id;
+  const liked = myId && (cm.likes || []).includes(myId);
+  const nLikes = (cm.likes || []).length;
+  const replies = cm.replies || [];
+  return `
+  <div class="cb-item" id="cb-${cm.id}">
+    <div class="cb-avatar-wrap" onclick="openUserProfile('${cm.user.id}')">
+      ${cm.user.image ? `<img class="cb-avatar" src="${esc(cm.user.image)}" alt="" />` : `<div class="cb-avatar ph">${esc((cm.user.name || 'L')[0])}</div>`}
+    </div>
+    <div class="cb-body">
+      <div class="cb-meta">
+        <strong class="cb-name" onclick="openUserProfile('${cm.user.id}')">${esc(cm.user.name)}</strong>
+        <small>${timeAgo(cm.ts)}</small>
+        ${myId && cm.user.id === myId ? `<button class="cb-del" onclick="deleteComment('${cm.id}')" title="Apagar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}
+      </div>
+      <p>${esc(cm.text)}</p>
+      <div class="cb-actions">
+        <button class="cb-like ${liked ? 'liked' : ''}" onclick="likeComment('${cm.id}', this)">
+          <svg viewBox="0 0 24 24" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span>${nLikes || ''}</span>
+        </button>
+        <button class="cb-reply-btn" onclick="toggleReply('${cm.id}')">Responder</button>
+      </div>
+      ${replies.length ? `<div class="cb-replies">${replies.map((rp) => `
+        <div class="cb-item reply">
+          <div class="cb-avatar-wrap" onclick="openUserProfile('${rp.userId}')">
+            ${rp.user?.image ? `<img class="cb-avatar sm" src="${esc(rp.user.image)}" alt="" />` : `<div class="cb-avatar sm ph">${esc((rp.user?.name || 'L')[0])}</div>`}
+          </div>
+          <div class="cb-body">
+            <div class="cb-meta"><strong class="cb-name" onclick="openUserProfile('${rp.userId}')">${esc(rp.user?.name || 'Leitor')}</strong><small>${timeAgo(rp.ts)}</small></div>
+            <p>${esc(rp.text)}</p>
+          </div>
+        </div>`).join('')}</div>` : ''}
+      <div class="cb-reply-form" id="rf-${cm.id}" hidden>
+        <input id="rt-${cm.id}" maxlength="300" placeholder="Responder…" />
+        <button class="cb-send sm" onclick="sendReply('${cm.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// mostra/esconde a caixa de responder
+function toggleReply(id) {
+  const f = $('#rf-' + id);
+  if (!f) return;
+  if (!syncUser) { switchTab('profile'); return; }
+  f.hidden = !f.hidden;
+  if (!f.hidden) f.querySelector('input')?.focus();
+}
+
+// envia resposta
+async function sendReply(parentId) {
+  if (!syncUser) { toast('Entre com sua conta primeiro'); return; }
+  const inp = $('#rt-' + parentId);
+  const text = inp?.value.trim();
+  if (!text) { toast('Escreva algo antes de responder'); return; }
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) { toast('Sessão expirada — recarregue a página'); return; }
+    const r = await fetch('/api/comments/reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ parent: parentId, text }),
+    });
+    const j = await r.json();
+    if (!j.ok) { toast('Erro: ' + (j.error || 'não foi possível responder')); return; }
+    if (inp) inp.value = '';
+    toast('Resposta enviada! 💬');
+    loadComments();
+  } catch {
+    toast('Erro de rede — tente de novo');
+  }
+}
+
+// curte/descurte um comentário
+async function likeComment(id, btn) {
+  if (!syncUser) { switchTab('profile'); return; }
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    const token = await window.Clerk.session?.getToken();
+    if (!token) { toast('Sessão expirada — recarregue a página'); return; }
+    const r = await fetch('/api/comments/like', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    if (!j.ok) { toast('Erro: ' + (j.error || 'não foi possível curtir')); return; }
+    const span = btn.querySelector('span');
+    if (span) span.textContent = j.count || '';
+    btn.classList.toggle('liked', j.liked);
+    const svg = btn.querySelector('svg');
+    if (svg) svg.setAttribute('fill', j.liked ? 'currentColor' : 'none');
+    toast(j.liked ? '❤️' : '');
+  } catch {
+    toast('Erro de rede — tente de novo');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// abre o perfil público de um usuário (sheet)
+async function openUserProfile(uid) {
+  try {
+    const r = await fetch('/api/comments?user=' + encodeURIComponent(uid));
+    const j = await r.json();
+    if (!j.ok || !j.user) { toast('Usuário não encontrado'); return; }
+    const u = j.user;
+    const isMe = syncUser && syncUser.id === uid;
+    showUserSheet(u, isMe);
+  } catch {
+    toast('Erro de rede');
+  }
+}
+
+// sheet de perfil público
+function showUserSheet(u, isMe) {
+  let sh = $('#userSheet');
+  if (!sh) {
+    sh = document.createElement('div');
+    sh.id = 'userSheet';
+    sh.className = 'sheet user-sheet';
+    document.body.appendChild(sh);
+    sh.addEventListener('click', (e) => { if (e.target === sh) sh.classList.remove('open'); });
+  }
+  sh.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><strong>Perfil</strong><button class="icon-btn" onclick="$('#userSheet').classList.remove('open')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="sheet-body" style="text-align:center;padding:20px">
+      ${u.image ? `<img src="${esc(u.image)}" class="user-sheet-avatar" alt="" />` : `<div class="user-sheet-avatar ph">${esc((u.name || 'L')[0])}</div>`}
+      <h3 style="margin-top:12px">${esc(u.name)}</h3>
+      <p class="muted" style="font-size:12px;margin-top:4px">${isMe ? 'Este é você!' : 'Membro do Manganana'}</p>
+      <div style="display:flex;gap:20px;justify-content:center;margin-top:16px">
+        <div><strong>${u.comments}</strong><small class="muted" style="display:block;font-size:11px">comentários</small></div>
+      </div>
+    </div>`;
+  sh.classList.add('open');
 }
 
 // envia um comentário no capítulo atual
@@ -2593,6 +2727,10 @@ window.deleteMangaDownloads = deleteMangaDownloads;
 window.sendComment = sendComment;
 window.deleteComment = deleteComment;
 window.loadComments = loadComments;
+window.likeComment = likeComment;
+window.sendReply = sendReply;
+window.toggleReply = toggleReply;
+window.openUserProfile = openUserProfile;
 window.openReaderSettings = openReaderSettings;
 window.markChapterRead = markChapterRead;
 window.clearSearchHistory = clearSearchHistory;
