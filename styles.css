@@ -119,7 +119,7 @@ button:active svg{transform:scale(.9)}
 .char-card{width:92px;flex:none;cursor:pointer;text-align:center}
 .char-card:active{opacity:.7}
 .char-img{width:92px;height:120px;border-radius:12px;overflow:hidden;background:var(--panel2);margin-bottom:7px;border:1px solid var(--line)}
-.char-img img{width:100%;height:100%;object-fit:cover;display:block}
+.char-img img{width:100%;height:100%;object-fit:cover;object-position:center 22%;display:block}
 .char-card strong{font-size:10.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25}
 
 /* ===== SELETOR DE IDIOMA / PROVEDOR ===== */
