@@ -159,16 +159,17 @@
           <div class="profile-head">
             <div class="avatar big" id="profileAvatar">J</div>
             <div class="ph-info">
-              <h3 id="profileName">Leitor</h3>
+              <div class="ph-name-row">
+                <h3 id="profileName">Leitor</h3>
+                <button class="ph-edit" id="btnEditProfile" title="Editar perfil" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              </div>
               <p class="muted" id="profileEmail">Leitor do Manganana</p>
               <div class="profile-tags" id="profileTags"></div>
             </div>
           </div>
           <p class="profile-bio" id="profileBio" hidden></p>
-          <button class="edit-profile-btn" id="btnEditProfile" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Editar perfil
-          </button>
           <div class="edit-profile-box" id="editProfileBox" hidden>
             <label class="ep-label">Bio</label>
             <textarea id="editBio" rows="2" maxlength="300" placeholder="Conte um pouco sobre você…"></textarea>
@@ -210,9 +211,18 @@
           <div class="rarrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
         </div>
         <div class="stats-row">
-          <div class="stat"><strong id="statFavs">0</strong><span>favoritos</span></div>
-          <div class="stat"><strong id="statRead">0</strong><span>lidos</span></div>
-          <div class="stat"><strong id="statPages">0</strong><span>páginas</span></div>
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <strong id="statFavs">0</strong><span>favoritos</span>
+          </div>
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <strong id="statRead">0</strong><span>lidos</span>
+          </div>
+          <div class="stat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+            <strong id="statPages">0</strong><span>páginas</span>
+          </div>
         </div>
         <div class="visit-count" id="visitCount" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
