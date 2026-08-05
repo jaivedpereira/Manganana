@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260805a" />
+  <link rel="stylesheet" href="styles.css?v=20260805c" />
   <!-- Vercel Web Analytics (visitas/views no dashboard) -->
   <script defer src="/_vercel/insights/script.js"></script>
   <!-- Clerk Auth (login com Google) — Account Portal (login hospedado) -->
@@ -40,7 +40,7 @@
       }).catch(function () {});
     })();
   </script>
-  <script src="app.js?v=20260805a" defer></script>
+  <script src="app.js?v=20260805c" defer></script>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -196,6 +196,7 @@
             <button class="seg-btn active" data-libsort="recent">Recentes</button>
             <button class="seg-btn" data-libsort="az">A-Z</button>
             <button class="seg-btn" data-libsort="read">Mais lidos</button>
+            <button class="seg-btn" data-libsort="unread">Não lidos</button>
           </div>
         </div>
         <div class="grid" id="libraryGrid"></div>
@@ -309,6 +310,7 @@
 
     <!-- READER -->
     <section id="view-reader" class="view reader-view">
+      <div class="reader-progress" id="readerProgress"><i id="readerProgressBar"></i><span id="readerProgressText"></span></div>
       <header class="reader-top" id="readerTop">
         <button class="icon-btn" id="btnReaderBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
         <div class="reader-title"><span id="readerMangaName">—</span><small id="readerChapterName">—</small></div>
@@ -385,7 +387,7 @@
       <label class="setting-row"><span>Modo leitura</span><select id="setReadingMode"><option value="vertical">Rolagem vertical</option><option value="horizontal">Páginas (horizontal)</option></select></label>
       <label class="setting-row"><span>Qualidade</span><select id="setQuality"><option value="full">Original</option><option value="dataSaver">Economia de dados</option></select></label>
       <label class="setting-row"><span>Ler da direita p/ esquerda</span><div class="switch"><input type="checkbox" id="setRTL" /><i></i></div></label>
-      <label class="setting-row"><span>Tema escuro</span><div class="switch"><input type="checkbox" id="setDark" checked /><i></i></div></label>
+      <label class="setting-row"><span>Tema</span><select id="setDark"><option value="dark">Escuro</option><option value="light">Claro</option><option value="auto">Seguir o sistema</option></select></label>
     </div>
   </div>
 

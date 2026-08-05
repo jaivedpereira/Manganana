@@ -30,12 +30,42 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-function toast(msg) {
+function toast(msg, icon) {
   const t = $('#toast');
-  t.textContent = msg;
+  t.innerHTML = '';
+  if (icon) {
+    const i = document.createElement('span');
+    i.className = 'toast-icon';
+    i.textContent = icon;
+    t.appendChild(i);
+  }
+  const s = document.createElement('span');
+  s.textContent = msg;
+  t.appendChild(s);
+  t.classList.remove('show');
+  // força reflow pra reiniciar a animação
+  void t.offsetWidth;
   t.classList.add('show');
   clearTimeout(t._h);
   t._h = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// tempo relativo: "agora", "há 5 min", "há 3 h", "há 2 d"
+function relTime(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'agora';
+  if (m < 60) return `há ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return d === 1 ? 'há 1 dia' : `há ${d} dias`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `há ${w} sem`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `há ${mo} ${mo === 1 ? 'mês' : 'meses'}`;
+  return `há ${Math.floor(d / 365)} ano(s)`;
 }
 
 function store(key, val) { localStorage.setItem('mn_' + key, JSON.stringify(val)); }
@@ -44,7 +74,7 @@ function load(key, def) { try { return JSON.parse(localStorage.getItem('mn_' + k
 /* ---------- estado ---------- */
 const state = {
   tab: 'home',
-  settings: load('settings', { mode: 'vertical', quality: 'full', rtl: false, dark: true, readerBg: 'auto', readerBright: 100, readerWidth: 100, webtoon: false, tapZones: false }),
+  settings: load('settings', { mode: 'vertical', quality: 'full', rtl: false, dark: true, theme: 'dark', readerBg: 'auto', readerBright: 100, readerWidth: 100, webtoon: false, tapZones: false }),
   favs: load('favs', []),           // [{id, title, cover}]
   history: load('history', []),     // [{id, title, cover, chapter, chapterId, page, ts}]
   readCount: load('readCount', {}), // {mangaId: n páginas lidas}
@@ -691,8 +721,36 @@ async function fetchHeroList() {
   return await searchManga({ limit: 8, order: 'followedCount' });
 }
 
+// skeleton: mostra cards de carregamento numa row
+function skRow(n = 4) {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    s += `<div class="sk-card"><div class="sk-cover"></div><div class="sk-line"></div><div class="sk-line short"></div></div>`;
+  }
+  return `<div class="sk-row">${s}</div>`;
+}
+
+// empty state bonito: ícone + título + descrição
+function emptyState(icon, title, desc) {
+  return `<div class="empty-state">
+    <div class="empty-icon">${icon}</div>
+    <strong>${title}</strong>
+    <p>${desc}</p>
+  </div>`;
+}
+
 async function renderHome() {
   const c = $('#homeContent');
+  // skeletons enquanto carrega
+  $('#trendingRow').innerHTML = skRow(5);
+  $('#recRow').innerHTML = skRow(5);
+  $('#rankList').innerHTML = skRow(3);
+  $('#recentRow').innerHTML = skRow(5);
+  $('#catActionRow').innerHTML = skRow(4);
+  $('#catRomanceRow').innerHTML = skRow(4);
+  $('#catComedyRow').innerHTML = skRow(4);
+  $('#catFantasyRow').innerHTML = skRow(4);
+  $('#catHorrorRow').innerHTML = skRow(4);
   // hero (carrossel premium com animes icônicos e populares)
   try {
     heroList = await fetchHeroList();
@@ -791,7 +849,7 @@ async function loadSeeAll(reset = false) {
     if (reset) {
       grid.innerHTML = list.length
         ? list.map(html).join('')
-        : '<div class="empty" style="grid-column:1/-1"><p>Nada encontrado nesta categoria.</p></div>';
+        : '<div style="grid-column:1/-1">' + emptyState('🔍', 'Nada encontrado', 'Tente outra categoria ou busca.') + '</div>';
     } else {
       grid.insertAdjacentHTML('beforeend', list.map(html).join(''));
     }
@@ -810,7 +868,7 @@ function renderContinue() {
   const row = $('#continueRow');
   const items = [...state.history].sort((a, b) => b.ts - a.ts).slice(0, 10);
   if (!items.length) {
-    row.innerHTML = '<p class="muted" style="font-size:12px;padding:4px 0">Nada lido ainda — explore e comece sua jornada!</p>';
+    row.innerHTML = emptyState('📖', 'Nada lido ainda', 'Explore a home e comece sua jornada!');
     return;
   }
   row.innerHTML = items.map((h) => {
@@ -892,7 +950,7 @@ async function loadExplore() {
       sort: state.filters.sort,
     });
     if (!list.length && state.explore.offset === 0) {
-      grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>Nenhum mangá encontrado.</p></div>';
+      grid.innerHTML = '<div style="grid-column:1/-1">' + emptyState('🔍', 'Nenhum mangá encontrado', 'Tente outro nome ou ajuste os filtros.') + '</div>';
       loadBtn.style.display = 'none';
     } else {
       grid.insertAdjacentHTML('beforeend', list.map((m) => rowHTML(m, state.favs.some((f) => f.id === m.id))).join(''));
@@ -973,6 +1031,14 @@ function renderLibrary() {
     else if (libSort === 'read') {
       const rc = load('readCount', {});
       items = [...items].sort((a, b) => (rc[b.id] || 0) - (rc[a.id] || 0));
+    }
+    else if (libSort === 'unread') {
+      // favoritos nunca lidos (sem histórico) primeiro
+      items = [...items].sort((a, b) => {
+        const ha = state.history.some((h) => h.id === a.id) ? 1 : 0;
+        const hb = state.history.some((h) => h.id === b.id) ? 1 : 0;
+        return ha - hb;
+      });
     }
     // 'recent': favs são salvos em ordem de adição; mostra os mais recentes primeiro
     if (libSort === 'recent') items = [...items].reverse();
@@ -1404,9 +1470,29 @@ function renderReader() {
   initReaderZoom();
   initTapZones();
   updateReaderNav();
+  updateReaderProgress();
   markProgress();
   preloadAdjacentPages();
   loadComments();
+  // progresso acompanha o scroll (modo contínuo/webtoon)
+  const rb = $('#readerBody');
+  rb.onscroll = () => {
+    const wraps = $$('#readerBody .page-wrap');
+    if (!wraps.length || !state.reader) return;
+    // página mais próxima do topo da viewport
+    let best = 0, bestDist = Infinity;
+    const top = rb.scrollTop + 40;
+    wraps.forEach((w, i) => {
+      const d = Math.abs(w.offsetTop - top);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    if (best !== state.reader.idx) {
+      state.reader.idx = best;
+      updateReaderNav();
+      updateReaderProgress();
+      markProgress();
+    }
+  };
 }
 
 // HTML de cada página do leitor — com placeholder e pré-carregamento inteligente
@@ -1479,7 +1565,23 @@ function scrollToPage() {
   const wraps = $$('#readerBody .page-wrap');
   const target = wraps[state.reader.idx];
   if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  updateReaderNav(); markProgress(); preloadAdjacentPages();
+  updateReaderNav();
+  markProgress();
+  preloadAdjacentPages();
+  updateReaderProgress();
+}
+
+// barra de progresso do capítulo (página atual / total)
+function updateReaderProgress() {
+  const r = state.reader;
+  const bar = $('#readerProgressBar');
+  const txt = $('#readerProgressText');
+  if (!r || !bar || !txt) return;
+  const total = r.pages.length || 1;
+  const cur = Math.min(r.idx + 1, total);
+  const pct = Math.round((cur / total) * 100);
+  bar.style.width = pct + '%';
+  txt.textContent = `${cur}/${total} · ${pct}%`;
 }
 
 function prevChapterNav() {
@@ -1800,6 +1902,23 @@ function initReaderZoom() {
     if (!img) return;
     img.classList.toggle('zoomed');
   });
+  // double-tap via touch (mais confiável no Android)
+  let lastTap = 0;
+  let lastTapTarget = null;
+  body.addEventListener('touchend', (e) => {
+    const img = e.target.closest('.page-img');
+    if (!img) return;
+    const now = Date.now();
+    if (lastTapTarget === img && now - lastTap < 320) {
+      e.preventDefault();
+      img.classList.toggle('zoomed');
+      lastTap = 0;
+      lastTapTarget = null;
+    } else {
+      lastTap = now;
+      lastTapTarget = img;
+    }
+  }, { passive: false });
   // pinch-zoom nativo habilitado (meta viewport já tem user-scalable? garante)
   const meta = document.querySelector('meta[name=viewport]');
   if (meta) meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5, user-scalable=yes');
@@ -3466,8 +3585,10 @@ function bindGlobal() {
   }));
   $('#nextChapter').addEventListener('click', nextChapterNav);
   $('#btnClearHistory').addEventListener('click', () => {
+    // confirmação antes de apagar tudo
+    if (!confirm('Apagar todo o histórico e progresso de leitura? Essa ação não pode ser desfeita.')) return;
     state.history = []; store('history', []); store('readCount', {});
-    renderLibrary(); renderProfile(); toast('Histórico limpo');
+    renderLibrary(); renderProfile(); toast('Histórico limpo', '🗑️');
   });
   $$('#libSeg .seg-btn').forEach((b) => b.addEventListener('click', () => {
     $$('#libSeg .seg-btn').forEach((x) => x.classList.remove('active'));
@@ -3481,16 +3602,25 @@ function bindGlobal() {
   });
 
   // settings inputs
+  const sysDark = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   const applyDark = (v) => document.body.classList.toggle('light', !v);
+  // resolve o tema: 'auto' segue o sistema operacional
+  const resolveTheme = () => state.settings.theme === 'light' ? false : (state.settings.theme === 'dark' ? true : sysDark());
+  // compat: quem tinha settings.dark booleano (versão antiga) vira 'dark'/'light'
+  if (!state.settings.theme) state.settings.theme = state.settings.dark ? 'dark' : 'light';
   $('#setReadingMode').value = state.settings.mode;
   $('#setQuality').value = state.settings.quality;
   $('#setRTL').checked = state.settings.rtl;
-  $('#setDark').checked = state.settings.dark;
-  applyDark(state.settings.dark);
+  $('#setDark').value = state.settings.theme;
+  applyDark(resolveTheme());
   $('#setReadingMode').addEventListener('change', (e) => { state.settings.mode = e.target.value; store('settings', state.settings); if (state.reader) renderReader(); });
   $('#setQuality').addEventListener('change', (e) => { state.settings.quality = e.target.value; store('settings', state.settings); if (state.reader) openChapter(state.reader.chapter.id); });
   $('#setRTL').addEventListener('change', (e) => { state.settings.rtl = e.target.checked; store('settings', state.settings); if (state.reader) renderReader(); });
-  $('#setDark').addEventListener('change', (e) => { state.settings.dark = e.target.checked; store('settings', state.settings); applyDark(e.target.checked); });
+  $('#setDark').addEventListener('change', (e) => { state.settings.theme = e.target.value; store('settings', state.settings); applyDark(resolveTheme()); });
+  // tema 'auto' acompanha mudanças do sistema em tempo real
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+    if (state.settings.theme === 'auto') applyDark(sysDark());
+  });
 
   // tap para mostrar/esconder controles do leitor
   $('#readerBody').addEventListener('click', (e) => {
@@ -3561,8 +3691,22 @@ function registerSW() {
         const nw = reg.installing;
         if (nw) nw.addEventListener('statechange', () => {
           if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            toast('Nova versão disponível — atualizando…');
-            setTimeout(() => window.location.reload(), 600);
+            // avisa com botão "atualizar" (não recarrega sozinho, respeita o usuário)
+            const t = $('#toast');
+            t.innerHTML = '';
+            const s = document.createElement('span');
+            s.textContent = 'Nova versão disponível';
+            t.appendChild(s);
+            const b = document.createElement('button');
+            b.className = 'toast-action';
+            b.textContent = 'Atualizar';
+            b.onclick = () => window.location.reload();
+            t.appendChild(b);
+            t.classList.remove('show');
+            void t.offsetWidth;
+            t.classList.add('show');
+            clearTimeout(t._h);
+            t._h = setTimeout(() => t.classList.remove('show'), 8000);
           }
         });
       });
@@ -3958,6 +4102,76 @@ function bindToTop() {
   }, { passive: true });
 }
 
+/* ---------- pull-to-refresh (home) ---------- */
+function bindPullRefresh() {
+  const content = $('#view-home').querySelector('.content');
+  if (!content) return;
+  let startY = 0;
+  let pulling = false;
+  let dy = 0;
+  const MAX = 76;
+  let indicator = document.getElementById('ptrIndicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'ptrIndicator';
+    indicator.innerHTML = '🔄';
+    content.parentElement.appendChild(indicator);
+  }
+  content.addEventListener('touchstart', (e) => {
+    if (content.scrollTop <= 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+      dy = 0;
+    } else {
+      pulling = false;
+    }
+  }, { passive: true });
+  content.addEventListener('touchmove', (e) => {
+    if (!pulling || content.scrollTop > 0) return;
+    dy = Math.max(0, e.touches[0].clientY - startY);
+    if (dy > 0) {
+      indicator.classList.add('show');
+      const t = Math.min(dy / MAX, 1);
+      indicator.style.transform = `translate(-50%, ${Math.min(dy, MAX) - 44}px) rotate(${t * 180}deg)`;
+    }
+  }, { passive: true });
+  content.addEventListener('touchend', () => {
+    if (!pulling) return;
+    pulling = false;
+    if (dy >= MAX) {
+      indicator.classList.add('refreshing');
+      toast('Atualizando…', '🔄');
+      renderHome().finally(() => {
+        setTimeout(() => {
+          indicator.classList.remove('show', 'refreshing');
+          indicator.style.transform = '';
+          toast('Atualizado!', '✅');
+        }, 600);
+      });
+    } else {
+      indicator.classList.remove('show');
+      indicator.style.transform = '';
+    }
+  }, { passive: true });
+}
+
+/* ---------- ripple effect (delegado, funciona em botões dinâmicos) ---------- */
+function bindRipple() {
+  document.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    r.style.width = r.style.height = size + 'px';
+    r.style.left = (e.clientX - rect.left - size / 2) + 'px';
+    r.style.top = (e.clientY - rect.top - size / 2) + 'px';
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 550);
+  }, { passive: true });
+}
+
 /* ---------- boot ---------- */
 (async function boot() {
   try {
@@ -3965,6 +4179,8 @@ function bindToTop() {
     bindPageLoad();
     initExplore();
     bindToTop();
+    bindPullRefresh();
+    bindRipple();
     await renderHome();
     renderLibrary();
     renderProfile();
