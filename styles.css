@@ -699,6 +699,21 @@ body.light .manga-card .cover .tag, body.light .manga-row .rcover .rtag{backgrou
   margin-top: 2px;
 }
 
+.stats-share{
+  margin-top: 12px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,214,10,.4);
+  background: linear-gradient(135deg, rgba(255,214,10,.15), rgba(255,214,10,.05));
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .2s;
+}
+.stats-share:active{ background: var(--accent); color: #141300; }
+
 /* ===== RESPONSIVO PARA DESKTOP (PC) ===== */
 @media(min-width:768px){
   /* app-shell centralizado e mais largo */

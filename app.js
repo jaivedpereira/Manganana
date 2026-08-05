@@ -1955,7 +1955,161 @@ function renderStatsSection() {
       <div class="stat-total"><strong>${s.total}</strong><span>capítulos lidos</span></div>
       <div class="stat-total"><strong>${s.mangas}</strong><span>mangás</span></div>
       <div class="stat-total"><strong>${s.week.reduce((a, d) => a + d.n, 0)}</strong><span>nesta semana</span></div>
-    </div>`;
+    </div>
+    <button class="stats-share" id="btnShareStats">📤 Compartilhar minhas stats</button>`;
+  $('#btnShareStats').addEventListener('click', shareStatsCard);
+}
+
+// ── card de estatísticas compartilhável (canvas) ──
+function shareStatsCard() {
+  const s = readingStats();
+  const name = syncUser?.name?.split(' ')[0] || 'Leitor';
+  const cv = document.createElement('canvas');
+  cv.width = 1080;
+  cv.height = 1350;
+  const ctx = cv.getContext('2d');
+
+  // fundo navy com gradiente + glow amarelo
+  const bg = ctx.createLinearGradient(0, 0, 0, 1350);
+  bg.addColorStop(0, '#0d1326');
+  bg.addColorStop(0.55, '#070a12');
+  bg.addColorStop(1, '#0d1326');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 1080, 1350);
+  const glow = ctx.createRadialGradient(540, 300, 50, 540, 300, 700);
+  glow.addColorStop(0, 'rgba(255,214,10,.08)');
+  glow.addColorStop(1, 'rgba(255,214,10,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, 1080, 1350);
+
+  // borda fina
+  ctx.strokeStyle = 'rgba(255,214,10,.35)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(30, 30, 1020, 1290);
+
+  // logo: "manga" amarelo + "nana" branco, centralizado
+  ctx.textAlign = 'center';
+  ctx.font = '900 54px system-ui, sans-serif';
+  const wManga = ctx.measureText('manga').width;
+  const wNana = ctx.measureText('nana').width;
+  const gapL = 6;
+  const startX = 540 - (wManga + gapL + wNana) / 2;
+  ctx.fillStyle = '#ffd60a';
+  ctx.fillText('manga', startX + wManga / 2, 130);
+  ctx.fillStyle = '#e9edf5';
+  ctx.fillText('nana', startX + wManga + gapL + wNana / 2, 130);
+
+  // slogan
+  ctx.fillStyle = '#7d8597';
+  ctx.font = '400 26px system-ui, sans-serif';
+  ctx.fillText('Histórias que viram mundos', 540, 185);
+
+  // nome do usuário
+  ctx.fillStyle = '#e9edf5';
+  ctx.font = '800 40px system-ui, sans-serif';
+  ctx.fillText(`${name}, suas stats de leitura`, 540, 280);
+
+  // streak grande
+  ctx.fillStyle = '#ffd60a';
+  ctx.font = '900 170px system-ui, sans-serif';
+  ctx.fillText(`🔥 ${s.streak}`, 540, 480);
+  ctx.fillStyle = '#aeb6c6';
+  ctx.font = '600 32px system-ui, sans-serif';
+  ctx.fillText(s.streak === 1 ? 'dia seguido lendo' : 'dias seguidos lendo', 540, 530);
+
+  // divisória
+  ctx.strokeStyle = 'rgba(255,255,255,.08)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(140, 580);
+  ctx.lineTo(940, 580);
+  ctx.stroke();
+
+  // gráfico de barras (últimos 7 dias)
+  const max = Math.max(1, ...s.week.map((d) => d.n));
+  const bw = 70;
+  const gap = 26;
+  const totalW = 7 * bw + 6 * gap;
+  let x = (1080 - totalW) / 2;
+  const baseY = 860;
+  const labels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  for (let i = 0; i < 7; i++) {
+    const d = s.week[i];
+    const h = Math.max(14, (d.n / max) * 220);
+    const g = ctx.createLinearGradient(0, baseY - h, 0, baseY);
+    g.addColorStop(0, '#ffd60a');
+    g.addColorStop(1, 'rgba(255,214,10,.15)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.roundRect(x, baseY - h, bw, h, 14);
+    ctx.fill();
+    // valor
+    ctx.fillStyle = d.n ? '#ffd60a' : '#4a5162';
+    ctx.font = '800 30px system-ui, sans-serif';
+    ctx.fillText(String(d.n), x + bw / 2, baseY - h - 16);
+    // label
+    ctx.fillStyle = '#7d8597';
+    ctx.font = '600 24px system-ui, sans-serif';
+    ctx.fillText(labels[i], x + bw / 2, baseY + 40);
+    x += bw + gap;
+  }
+  ctx.fillStyle = '#aeb6c6';
+  ctx.font = '500 24px system-ui, sans-serif';
+  ctx.fillText('últimos 7 dias', 540, 940);
+
+  // totais em cards
+  const cards = [
+    { n: s.total, l: 'capítulos lidos' },
+    { n: s.mangas, l: 'mangás' },
+    { n: s.week.reduce((a, d) => a + d.n, 0), l: 'nesta semana' },
+  ];
+  const cw = 260;
+  const cgap = 30;
+  const cTotal = 3 * cw + 2 * cgap;
+  let cx = (1080 - cTotal) / 2;
+  const cy = 1030;
+  for (const c of cards) {
+    ctx.fillStyle = 'rgba(255,255,255,.04)';
+    ctx.beginPath();
+    ctx.roundRect(cx, cy, cw, 170, 20);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,214,10,.25)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#ffd60a';
+    ctx.font = '900 56px system-ui, sans-serif';
+    ctx.fillText(String(c.n), cx + cw / 2, cy + 80);
+    ctx.fillStyle = '#aeb6c6';
+    ctx.font = '500 24px system-ui, sans-serif';
+    ctx.fillText(c.l, cx + cw / 2, cy + 130);
+    cx += cw + cgap;
+  }
+
+  // rodapé
+  ctx.fillStyle = '#5b6372';
+  ctx.font = '500 24px system-ui, sans-serif';
+  ctx.fillText('manganana.vercel.app', 540, 1295);
+
+  // compartilha ou baixa
+  cv.toBlob(async (blob) => {
+    if (!blob) return;
+    const file = new File([blob], 'manganana-stats.png', { type: 'image/png' });
+    const url = URL.createObjectURL(blob);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Minhas stats no Manganana', text: `🔥 ${s.streak} dias seguidos lendo mangá!`, files: [file] });
+        toast('Compartilhado! 📤');
+        return;
+      } catch (e) { /* cancelado */ }
+    }
+    // fallback: baixa a imagem
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'manganana-stats.png';
+    a.click();
+    toast('Imagem salva! 📥');
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }, 'image/png');
 }
 
 function renderProfile() {
