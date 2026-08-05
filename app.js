@@ -1114,6 +1114,7 @@ function markProgress() {
   const n = load('readCount', {});
   n[r.manga.id] = (n[r.manga.id] || 0) + 1;
   store('readCount', n);
+  logReading(r.manga.id, mangaTitle(r.manga), chapterNum(r.chapter));
   // registra o último capítulo visto (para alertas de capítulo novo)
   const lastSeen = load('lastSeen', {});
   lastSeen[r.manga.id] = r.chapter.id;
@@ -1135,6 +1136,7 @@ function markChapterRead(chapterId) {
       id: m.id, title: mangaTitle(m), cover: mangaCover(m),
       chapter: chapterNum(ch), chapterId, page: 0, total: 0, ts: Date.now(),
     });
+    logReading(m.id, mangaTitle(m), chapterNum(ch));
     const lastSeen = load('lastSeen', {});
     lastSeen[m.id] = chapterId;
     store('lastSeen', lastSeen);
@@ -1875,11 +1877,93 @@ function switchTab(tab, keepScroll = true) {
   if (tab === 'profile') { renderProfile(); renderDownloads(); }
 }
 
+// ===== estatísticas de leitura =====
+const READING_LOG_KEY = 'readingLog';
+
+// registra um evento de leitura (capítulo lido) com data
+function logReading(mangaId, title, chapter) {
+  const log = load(READING_LOG_KEY, []);
+  log.push({ m: mangaId, t: title, c: chapter, d: Date.now() });
+  // mantém só os últimos 500 eventos
+  store(READING_LOG_KEY, log.slice(-500));
+}
+
+// dia local em formato YYYY-MM-DD
+function dayKey(ts) {
+  const d = new Date(ts);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// calcula estatísticas: streak, últimos 7 dias, totais
+function readingStats() {
+  const log = load(READING_LOG_KEY, []);
+  const days = new Set(log.map((e) => dayKey(e.d)));
+  const byDay = {};
+  for (const e of log) {
+    const k = dayKey(e.d);
+    byDay[k] = (byDay[k] || 0) + 1;
+  }
+  // streak: dias seguidos lendo (hoje conta, ontem não quebra)
+  let streak = 0;
+  const cursor = new Date();
+  const today = dayKey(cursor.getTime());
+  if (!days.has(today)) cursor.setDate(cursor.getDate() - 1); // permite streak que "ainda não leu hoje"
+  while (days.has(dayKey(cursor.getTime()))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  // últimos 7 dias (incluindo hoje)
+  const week = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    week.push({ label: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'][d.getDay()], key: dayKey(d.getTime()), n: byDay[dayKey(d.getTime())] || 0 });
+  }
+  const mangas = new Set(log.map((e) => e.m)).size;
+  return { streak, week, total: log.length, mangas };
+}
+
+// renderiza a seção de estatísticas no perfil
+function renderStatsSection() {
+  let wrap = $('#statsWrap');
+  const content = $('#view-profile .content');
+  if (!content) return;
+  const s = readingStats();
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'statsWrap';
+    wrap.className = 'stats-wrap';
+    const anchor = $('#listsWrap') || $('#visitCount') || $('#profileBio');
+    content.insertBefore(wrap, anchor ? anchor.nextSibling : null);
+  }
+  const max = Math.max(1, ...s.week.map((d) => d.n));
+  const bars = s.week.map((d) => {
+    const h = Math.max(6, Math.round((d.n / max) * 44));
+    return `<div class="stat-bar-col" title="${d.n} capítulo(s)">
+      <div class="stat-bar" style="height:${h}px"></div>
+      <span class="stat-bar-label">${d.label}</span>
+    </div>`;
+  }).join('');
+  wrap.innerHTML = `
+    <div class="stats-head">
+      <h3>📊 Suas estatísticas</h3>
+      <span class="stats-streak">🔥 ${s.streak} ${s.streak === 1 ? 'dia seguido' : 'dias seguidos'}</span>
+    </div>
+    <div class="stats-bars">${bars}</div>
+    <div class="stats-totals">
+      <div class="stat-total"><strong>${s.total}</strong><span>capítulos lidos</span></div>
+      <div class="stat-total"><strong>${s.mangas}</strong><span>mangás</span></div>
+      <div class="stat-total"><strong>${s.week.reduce((a, d) => a + d.n, 0)}</strong><span>nesta semana</span></div>
+    </div>`;
+}
+
 function renderProfile() {
   $('#statFavs').textContent = state.favs.length;
   $('#statRead').textContent = Object.keys(load('readCount', {})).length;
   const pages = Object.values(load('readCount', {})).reduce((a, b) => a + b, 0);
   $('#statPages').textContent = pages;
+  renderStatsSection();
   renderSpotlight();
   renderVisits();
   renderMyProfile();

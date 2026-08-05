@@ -617,6 +617,88 @@ body.light .manga-card .cover .tag, body.light .manga-row .rcover .rtag{backgrou
   body{background:#04060c}
 }
 
+/* ===== ESTATÍSTICAS DE LEITURA ===== */
+.stats-wrap{
+  margin: 14px 0;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.stats-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stats-head h3{ font-size: 14px; font-weight: 800; color: var(--text); }
+.stats-streak{
+  font-size: 12px;
+  font-weight: 800;
+  color: #141300;
+  background: var(--accent);
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.stats-bars{
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  height: 60px;
+  margin-bottom: 12px;
+}
+.stat-bar-col{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 100%;
+}
+.stat-bar{
+  width: 100%;
+  max-width: 26px;
+  min-height: 4px;
+  border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(180deg, var(--accent), rgba(255,214,10,.25));
+  transition: height .4s ease;
+}
+.stat-bar-label{
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.stats-totals{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.stat-total{
+  text-align: center;
+  padding: 10px 6px;
+  background: rgba(7,10,18,.5);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.stat-total strong{
+  display: block;
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--accent);
+}
+.stat-total span{
+  display: block;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
 /* ===== RESPONSIVO PARA DESKTOP (PC) ===== */
 @media(min-width:768px){
   /* app-shell centralizado e mais largo */
