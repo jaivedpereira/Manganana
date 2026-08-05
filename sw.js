@@ -5,7 +5,7 @@
    - API: network-first com fallback
 */
 
-const VERSION = 'manganana-v1.4.0';
+const VERSION = 'manganana-v1.5.0';
 const CORE_CACHE = VERSION + '-core';
 const CHAPTER_CACHE = VERSION + '-chapters';
 
