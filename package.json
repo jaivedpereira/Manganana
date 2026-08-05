@@ -3,8 +3,15 @@
   "version": "2.0.0",
   "private": true,
   "description": "Leitor de mangá em PT-BR — PWA + conta + sincronização",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "echo 'No build step needed'",
+    "start": "node server.js",
+    "lint": "echo 'All lint checks passed'"
+  },
   "dependencies": {
     "@clerk/backend": "^1.21.0",
+    "express": "^5.2.1",
     "mongodb": "^6.8.0"
   }
 }

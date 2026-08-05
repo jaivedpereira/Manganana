@@ -5,7 +5,7 @@
 //   GET  /api/profile/mangas?ids=a,b → busca capas de mangás por id (para as listas)
 
 const { createClerkClient, verifyToken } = require('@clerk/backend');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('./db.js');
 
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY,

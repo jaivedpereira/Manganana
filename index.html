@@ -30,7 +30,9 @@
     (function () {
       if (!('caches' in window)) return;
       caches.keys().then(function (keys) {
-        var stale = keys.filter(function (k) { return k.indexOf('v1.4.0') === -1; });
+        var stale = keys.filter(function (k) {
+          return k.indexOf('manganana') !== -1 && k.indexOf('v1.5.0') === -1;
+        });
         if (stale.length) {
           Promise.all(stale.map(function (k) { return caches.delete(k); }))
             .then(function () { window.location.reload(); });
@@ -65,25 +67,83 @@
           <div class="hero-track" id="heroTrack"></div>
           <div class="hero-dots" id="heroDots"></div>
         </div>
-        <div class="section-head"><h2>Continue lendo</h2></div>
+        <div class="section-head">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>Continue lendo</span>
+          </h2>
+        </div>
         <div class="scroll-row" id="continueRow"></div>
-        <div class="section-head" id="recHead"><h2>Pra você 🎯</h2></div>
+        <div class="section-head" id="recHead">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+            <span>Pra você</span>
+          </h2>
+        </div>
         <div class="scroll-row" id="recRow"></div>
-        <div class="section-head"><h2>Em alta 🔥</h2><button class="see-all" onclick="openSeeAll('trending')">Ver tudo →</button></div>
+        <div class="section-head">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+            <span>Em alta</span>
+          </h2>
+          <button class="see-all" onclick="openSeeAll('trending')">Ver tudo →</button>
+        </div>
         <div class="scroll-row" id="trendingRow"></div>
-        <div class="section-head"><h2>Ranking 🏆</h2><button class="see-all" onclick="openSeeAll('trending')">Ver tudo →</button></div>
+        <div class="section-head">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"></path><path d="M12 2a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4 4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z"></path></svg>
+            <span>Ranking</span>
+          </h2>
+          <button class="see-all" onclick="openSeeAll('trending')">Ver tudo →</button>
+        </div>
         <div class="rank-list" id="rankList"></div>
-        <div class="section-head"><h2>Recentes 📚</h2><button class="see-all" onclick="openSeeAll('recent')">Ver tudo →</button></div>
+        <div class="section-head">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            <span>Recentes</span>
+          </h2>
+          <button class="see-all" onclick="openSeeAll('recent')">Ver tudo →</button>
+        </div>
         <div class="scroll-row" id="recentRow"></div>
-        <div class="section-head" id="catActionHead"><h2>Ação ⚔️</h2><button class="see-all" onclick="openSeeAll('action')">Ver tudo →</button></div>
+        <div class="section-head" id="catActionHead">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <span>Ação</span>
+          </h2>
+          <button class="see-all" onclick="openSeeAll('action')">Ver tudo →</button>
+        </div>
         <div class="scroll-row" id="catActionRow"></div>
-        <div class="section-head" id="catRomanceHead"><h2>Romance 💕</h2><button class="see-all" onclick="openSeeAll('romance')">Ver tudo →</button></div>
+        <div class="section-head" id="catRomanceHead">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            <span>Romance</span>
+          </h2>
+          <button class="see-all" onclick="openSeeAll('romance')">Ver tudo →</button>
+        </div>
         <div class="scroll-row" id="catRomanceRow"></div>
-        <div class="section-head" id="catFantasyHead"><h2>Fantasia 🐉</h2><button class="see-all" onclick="openSeeAll('fantasy')">Ver tudo →</button></div>
+        <div class="section-head" id="catFantasyHead">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+            <span>Fantasia</span>
+          </h2>
+          <button class="see-all" onclick="openSeeAll('fantasy')">Ver tudo →</button>
+        </div>
         <div class="scroll-row" id="catFantasyRow"></div>
-        <div class="section-head" id="catHorrorHead"><h2>Terror 👻</h2><button class="see-all" onclick="openSeeAll('horror')">Ver tudo →</button></div>
+        <div class="section-head" id="catHorrorHead">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M9 10h.01M15 10h.01M10 15h4M12 2a7 7 0 0 0-7 7v9a2 2 0 0 0 3 1.73l2-1.23 2 1.23 2-1.23 2 1.23a2 2 0 0 0 3-1.73V9a7 7 0 0 0-7-7z"></path></svg>
+            <span>Terror</span>
+          </h2>
+          <button class="see-all" onclick="openSeeAll('horror')">Ver tudo →</button>
+        </div>
         <div class="scroll-row" id="catHorrorRow"></div>
-        <div class="section-head" id="catComedyHead"><h2>Comédia 😂</h2><button class="see-all" onclick="openSeeAll('comedy')">Ver tudo →</button></div>
+        <div class="section-head" id="catComedyHead">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"></path></svg>
+            <span>Comédia</span>
+          </h2>
+          <button class="see-all" onclick="openSeeAll('comedy')">Ver tudo →</button>
+        </div>
         <div class="scroll-row" id="catComedyRow"></div>
       </div>
     </section>
@@ -197,7 +257,7 @@
         <div class="spotlight" id="spotlightCard" onclick="spotlightClick()" style="display:none">
           <div class="spot-cover" id="spotlightCover"></div>
           <div class="spot-body">
-            <span class="spot-tag">⭐ Mais lido</span>
+            <span class="spot-tag"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>Mais lido</span>
             <h3 id="spotlightTitle">—</h3>
             <p id="spotlightSub" class="muted">—</p>
           </div>
@@ -224,7 +284,12 @@
         <div class="menu-list">
           <button class="menu-item" id="btnClearHistory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Limpar histórico</button>
         </div>
-        <div class="section-head" style="margin-top:22px"><h2>Downloads ⬇</h2></div>
+        <div class="section-head" style="margin-top:22px">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+            <span>Downloads</span>
+          </h2>
+        </div>
         <div id="downloadsWrap"></div>
       </div>
     </section>
@@ -381,6 +446,28 @@
       <label class="ep-label" style="display:block;margin-top:14px">Bio</label>
       <textarea id="editBio" rows="3" maxlength="300" placeholder="Conte um pouco sobre você…"></textarea>
       <button class="ep-save" onclick="saveProfile()">Salvar</button>
+    </div>
+  </div>
+
+  <!-- SHARE MANGA OPTIONS SHEET -->
+  <div class="sheet" id="shareMangaSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><strong>Compartilhar</strong><button class="icon-btn" id="closeShareManga"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="sheet-body" style="padding:16px 24px 32px; display:flex; flex-direction:column; gap:14px;">
+      <button class="share-option-btn" id="btnShareMangaLink">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="share-icon"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <div class="share-btn-text">
+          <span class="share-btn-title">Copiar link do mangá</span>
+          <small class="share-btn-desc">Copiar link direto para a área de transferência</small>
+        </div>
+      </button>
+      <button class="share-option-btn" id="btnShareMangaStory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="share-icon"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <div class="share-btn-text">
+          <span class="share-btn-title">Gerar Cartão para Redes (Story)</span>
+          <small class="share-btn-desc">Capa desfocada, estatísticas e arte em alta definição</small>
+        </div>
+      </button>
     </div>
   </div>
 

@@ -261,7 +261,7 @@ function mangaCover(m) {
 function mangaCoverFull(m) {
   const rel = (m?.relationships ?? []).find((r) => r.type === 'cover_art');
   const fn = rel?.attributes?.fileName;
-  return fn ? px(`${CDN}/covers/${m.id}/${fn}`) : '';
+  return fn ? px(`${CDN}/covers/${m.id}/${fn}.512.jpg`) : '';
 }
 function mangaYear(m) { return m?.attributes?.year || ''; }
 function mangaAuthors(m) {
@@ -299,14 +299,16 @@ function timeAgo(iso) {
 }
 function pct(n) { return Number(n).toFixed(1); }
 
-async function searchManga({ query = '', genre = 'all', offset = 0, limit = 24, order = 'followedCount', status = '', year = '', sort = '' }) {
+async function searchManga({ query = '', genre = 'all', offset = 0, limit = 24, order = 'followedCount', status = '', year = '', sort = '', lang = 'pt-br' }) {
   const p = new URLSearchParams();
   p.set('limit', limit);
   p.set('offset', offset);
   p.append('includes[]', 'cover_art');
   p.append('includes[]', 'author');
   p.append('includes[]', 'artist');
-  p.set('availableTranslatedLanguage[]', 'pt-br');
+  if (lang && lang !== 'all') {
+    p.set('availableTranslatedLanguage[]', lang);
+  }
   // ordenação: filtro avançado tem prioridade, senão usa o order padrão
   const ord = sort || order;
   if (ord === 'title') p.set('order[title]', 'asc');
@@ -383,7 +385,7 @@ function cardHTML(m, faved) {
   <article class="manga-card" data-id="${m.id}" onclick="openDetail('${m.id}')">
     <div class="cover">
       ${coverImg(cover, title)}
-      ${faved ? '<span class="tag">♥ FAV</span>' : ''}
+      ${faved ? '<span class="tag"><svg class="tag-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>FAV</span>' : ''}
     </div>
     <h3>${esc(title)}</h3>
     <div class="sub">${esc(sub)}</div>
@@ -400,13 +402,13 @@ function rowHTML(m, faved) {
   <article class="manga-row" data-id="${m.id}" onclick="openDetail('${m.id}')">
     <div class="rcover">
       ${coverImg(cover, title)}
-      ${faved ? '<span class="rtag">♥</span>' : ''}
+      ${faved ? '<span class="rtag"><svg class="tag-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>' : ''}
     </div>
     <div class="rinfo">
       <h3>${esc(title)}</h3>
       <div class="rsub">
         ${year ? `<span>${year}</span>` : ''}
-        ${mangaAuthors(m) ? `<span>✍ ${esc(mangaAuthors(m))}</span>` : ''}
+        ${mangaAuthors(m) ? `<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="color:var(--muted);width:10px;height:10px;margin-right:3px;"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>${esc(mangaAuthors(m))}</span>` : ''}
       </div>
       ${tags.length ? `<div class="rtags">${tags.slice(0, 3).map((t) => `<span class="rtag-chip">${esc(t)}</span>`).join('')}</div>` : ''}
     </div>
@@ -485,7 +487,7 @@ function rankItemHTML(m, pos, faved) {
       <h3>${esc(title)}</h3>
       <div class="rank-sub">
         ${year ? `<span>${year}</span>` : ''}
-        ${faved ? '<span class="rtag">♥</span>' : ''}
+        ${faved ? '<span class="rtag"><svg class="tag-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>' : ''}
       </div>
       ${tags.length ? `<div class="rtags">${tags.slice(0, 3).map((t) => `<span class="rtag-chip">${esc(t)}</span>`).join('')}</div>` : ''}
     </div>
@@ -505,7 +507,7 @@ function bigCardHTML(m, faved) {
   <article class="big-card" data-id="${m.id}" onclick="openDetail('${m.id}')">
     <div class="bcover">
       ${coverImg(cover, title)}
-      ${faved ? '<span class="tag">♥ FAV</span>' : ''}
+      ${faved ? '<span class="tag"><svg class="tag-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>FAV</span>' : ''}
       ${year ? `<span class="byear">${year}</span>` : ''}
     </div>
     <h3>${esc(title)}</h3>
@@ -516,13 +518,13 @@ function bigCardHTML(m, faved) {
 /* ---------- render: home ---------- */
 // nomes de gêneros (inglês) para buscar por categoria
 const CATS = {
-  trending: { title: 'Em alta 🔥', api: { order: 'followedCount' } },
-  recent: { title: 'Recentes 📚', api: { order: 'latestUploadedChapter' } },
-  action: { title: 'Ação ⚔️', genre: 'Action' },
-  romance: { title: 'Romance 💕', genre: 'Romance' },
-  fantasy: { title: 'Fantasia 🐉', genre: 'Fantasy' },
-  horror: { title: 'Terror 👻', genre: 'Horror' },
-  comedy: { title: 'Comédia 😂', genre: 'Comedy' },
+  trending: { title: 'Em alta', api: { order: 'followedCount' } },
+  recent: { title: 'Recentes', api: { order: 'latestUploadedChapter' } },
+  action: { title: 'Ação', genre: 'Action' },
+  romance: { title: 'Romance', genre: 'Romance' },
+  fantasy: { title: 'Fantasia', genre: 'Fantasy' },
+  horror: { title: 'Terror', genre: 'Horror' },
+  comedy: { title: 'Comédia', genre: 'Comedy' },
 };
 
 // busca mangás por categoria (gênero ou ordenação)
@@ -540,11 +542,20 @@ async function fetchCat(catKey, limit = 12, offset = 0) {
   return searchManga({ limit, offset, genre: g.id });
 }
 
+function mangaStatusPt(m) {
+  const s = m?.attributes?.status;
+  if (s === 'ongoing') return 'Em publicação';
+  if (s === 'completed') return 'Finalizado';
+  if (s === 'hiatus') return 'Em hiato';
+  if (s === 'cancelled') return 'Cancelado';
+  return '';
+}
+
 let heroTimer = null;
 let heroIdx = 0;
 let heroList = [];
 
-// carrossel do hero com rotação automática
+// carrossel do hero com rotação automática e design premium
 function renderHero() {
   const track = $('#heroTrack');
   const dots = $('#heroDots');
@@ -552,34 +563,55 @@ function renderHero() {
   if (!heroList.length) { sk.style.display = 'none'; return; }
   sk.className = 'hero-skeleton';
   sk.style.display = '';
+
+  const badges = [
+    '✦ Em destaque',
+    '🔥 Em alta',
+    '⭐ Escolha dos leitores',
+    '✨ Recomendado',
+    '💎 Obra-prima',
+    '👑 Campeão de audiência',
+    '⚡ Sucesso absoluto',
+    '📈 Tendência da semana'
+  ];
+
   track.innerHTML = heroList.map((m, i) => {
     const t = mangaTitle(m);
-    const d = mangaDesc(m).slice(0, 110);
+    const rawD = mangaDesc(m);
+    const d = rawD.length > 120 ? rawD.slice(0, 117) + '...' : rawD;
     const full = mangaCoverFull(m);
+    const tags = mangaTags(m).slice(0, 2).join(' • ');
+    const year = mangaYear(m);
+    const status = mangaStatusPt(m);
+
+    const metaParts = [];
+    if (status) metaParts.push(status);
+    if (year) metaParts.push(year);
+    if (tags) metaParts.push(tags);
+    const metaHtml = metaParts.length ? `<div class="hero-meta">${esc(metaParts.join('  •  '))}</div>` : '';
+    const badge = badges[i % badges.length];
+
     return `
-    <div class="hero-card slide">
-      <img data-src="${full}" alt="${esc(t)}" loading="eager" decoding="async" />
+    <div class="hero-card slide" onclick="if (!event.target.closest('button')) openDetail('${m.id}')">
+      <div class="hero-bg-blur" style="background-image: url('${full}')"></div>
       <div class="hero-shade"></div>
       <div class="hero-body">
-        <div class="hero-tag">✦ Em destaque</div>
+        <div class="hero-tag">${esc(badge)}</div>
         <h1>${esc(t)}</h1>
+        ${metaHtml}
         <p>${esc(d)}</p>
         <button class="hero-cta" onclick="openDetail('${m.id}')">Ver detalhes
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
       </div>
+      <div class="hero-cover-wrap">
+        <img src="${full}" alt="${esc(t)}" class="hero-right-cover" loading="${i === 0 ? 'eager' : 'lazy'}" decoding="async" />
+      </div>
     </div>`;
   }).join('');
+
   dots.innerHTML = heroList.map((_, i) => `<button class="dot ${i === 0 ? 'active' : ''}" onclick="heroGo(${i})"></button>`).join('');
   heroIdx = 0;
-  // pré-carrega as capas via JS (o lazy não carrega slides escondidos no track)
-  $$('#heroTrack img').forEach((img) => {
-    const src = img.dataset.src;
-    if (!src) return;
-    const loader = new Image();
-    loader.onload = () => { if (img.dataset.src) { img.src = src; img.removeAttribute('data-src'); } };
-    loader.src = src;
-  });
   startHeroTimer();
 }
 
@@ -617,11 +649,53 @@ function initHeroSwipe() {
   }, { passive: true });
 }
 
+async function fetchHeroList() {
+  const curatedIds = [
+    'a77742b1-befd-49a4-bff5-1ad4e6b0ef7b', // Chainsaw Man
+    '7c21cc6b-df69-4880-a185-53a3f7a2f81d', // Solo Leveling
+    '4141c5dc-c525-4df5-afd7-cc7d192a832f', // Jujutsu Kaisen
+    '52178220-4e56-4b82-9f2b-236b2841a457', // One Piece
+    'bb2b1523-e383-4a00-85f0-622879717544', // Frieren
+    '5d2d559e-e024-49e0-911e-848e0281b3cc', // Oshi no Ko
+    '35d513a0-438e-491b-b729-450efb946851'  // Demon Slayer
+  ];
+
+  try {
+    const results = await Promise.all(
+      curatedIds.map(async (id) => {
+        try {
+          return await getManga(id);
+        } catch (e) {
+          console.warn(`Error fetching curated manga ${id}:`, e);
+          return null;
+        }
+      })
+    );
+    const valid = results.filter(Boolean);
+    if (valid.length >= 3) {
+      return valid;
+    }
+  } catch (err) {
+    console.error('Error fetching curated hero list:', err);
+  }
+
+  // Fallback 1: global top followed mangas (no language restrictions)
+  try {
+    const fallbackList = await searchManga({ limit: 8, order: 'followedCount', lang: 'all' });
+    if (fallbackList && fallbackList.length) return fallbackList;
+  } catch (e) {
+    console.warn('Fallback 1 search failed, trying fallback 2:', e);
+  }
+
+  // Fallback 2: default Portuguese top followed
+  return await searchManga({ limit: 8, order: 'followedCount' });
+}
+
 async function renderHome() {
   const c = $('#homeContent');
-  // hero (carrossel com os 5 mais populares)
+  // hero (carrossel premium com animes icônicos e populares)
   try {
-    heroList = await searchManga({ limit: 5, order: 'followedCount' });
+    heroList = await fetchHeroList();
     renderHero();
     initHeroSwipe();
   } catch { $('#heroSkeleton').style.display = 'none'; }
@@ -995,7 +1069,7 @@ function renderDetail(m, premium, langs) {
       onclick="switchLang('${l.code}')">${esc(langName(l.code))} (${l.count})</button>`).join('');
 
   const providerInfo = provider === 'mangapill'
-    ? `<div class="provider-banner">📖 Provedor: <b>MangaPill</b> — capítulos em inglês</div>`
+    ? `<div class="provider-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="width: 12px; height: 12px; margin-right: 4px; color: var(--accent);"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>Provedor: <b>MangaPill</b> — capítulos em inglês</div>`
     : '';
 
   $('#detailContent').innerHTML = `
@@ -1010,7 +1084,7 @@ function renderDetail(m, premium, langs) {
     <div class="detail-info">
       <h1>${esc(mangaTitle(m))}</h1>
       ${mangaAltTitles(m) ? `<div class="authors">${esc(mangaAltTitles(m))}</div>` : ''}
-      ${mangaAuthors(m) ? `<div class="authors">✍️ ${esc(mangaAuthors(m))}</div>` : ''}
+      ${mangaAuthors(m) ? `<div class="authors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="color:var(--muted);width:11px;height:11px;margin-right:4px;"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>${esc(mangaAuthors(m))}</div>` : ''}
       ${(score != null || pop || statusPt || totalCaps) ? `
       <div class="premium-card">
         ${score != null ? `
@@ -1030,7 +1104,8 @@ function renderDetail(m, premium, langs) {
       </div>` : ''}
       <div class="detail-actions">
         <button class="btn-primary" onclick="resumeRead()">
-          ${hasRead ? '▶ Continuar lendo' : '▶ Começar a ler'}
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width: 13px; height: 13px; margin-right: 6px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span>${hasRead ? 'Continuar lendo' : 'Começar a ler'}</span>
         </button>
         <button class="btn-ghost ${faved ? 'faved' : ''}" id="detailFavBtn" onclick="toggleFav()">
           <svg viewBox="0 0 24 24" fill="${faved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -1063,12 +1138,17 @@ function renderDetail(m, premium, langs) {
         <h2>Capítulos</h2>
         <span>${chs.length} disponíveis</span>
       </div>
-      <div class="lang-row" id="langRow">${langChips}${pill ? `<button class="chip ${provider === 'mangapill' ? 'active' : ''}" onclick="switchProvider('mangapill')">📖 MangaPill</button>` : ''}</div>
+      <div class="lang-row" id="langRow">${langChips}${pill ? `<button class="chip ${provider === 'mangapill' ? 'active' : ''}" onclick="switchProvider('mangapill')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="width: 12px; height: 12px; margin-right: 4px; color: inherit;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>MangaPill</button>` : ''}</div>
       ${providerInfo}
       <div class="chapter-list">
         ${chs.length ? chs.map((c) => chapterItemHTML(c, lastRead)).join('') : `<p class="muted" style="font-size:12px">Nenhum capítulo neste idioma ainda. Tente outro idioma ou o provedor alternativo.</p>`}
       </div>
-      <div class="section-head"><h2>Você também pode gostar ✨</h2></div>
+      <div class="section-head">
+        <h2>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <span>Você também pode gostar</span>
+        </h2>
+      </div>
       <div class="scroll-row" id="detailRecRow"><div class="spinner"></div></div>
     </div>`;
 
@@ -1140,7 +1220,7 @@ function markChapterRead(chapterId) {
     const lastSeen = load('lastSeen', {});
     lastSeen[m.id] = chapterId;
     store('lastSeen', lastSeen);
-    toast('Capítulo marcado como lido ✓');
+    toast('Capítulo marcado como lido');
   }
   store('history', state.history.slice(0, 60));
   const lastRead = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === m.id);
@@ -1158,7 +1238,7 @@ function toggleFav() {
     toast('Removido dos favoritos');
   } else {
     state.favs.push({ id: m.id, title: mangaTitle(m), cover: mangaCover(m) });
-    toast('Adicionado aos favoritos ♥');
+    toast('Adicionado aos favoritos');
   }
   store('favs', state.favs);
   $('#btnDetailFav')?.classList.toggle('faved', idx < 0);
@@ -1551,7 +1631,7 @@ async function sendReply(parentId) {
     const j = await r.json();
     if (!j.ok) { toast('Erro: ' + (j.error || 'não foi possível responder')); return; }
     if (inp) inp.value = '';
-    toast('Resposta enviada! 💬');
+    toast('Resposta enviada!');
     loadComments();
   } catch {
     toast('Erro de rede — tente de novo');
@@ -1645,7 +1725,7 @@ async function sendComment() {
     const j = await r.json();
     if (!j.ok) { toast('Erro: ' + (j.error || 'não foi possível comentar')); return; }
     if (textEl) textEl.value = '';
-    toast('Comentário enviado! 💬');
+    toast('Comentário enviado!');
     loadComments();
   } catch {
     toast('Erro de rede — tente de novo');
@@ -1804,8 +1884,15 @@ function openReaderSettings() {
   openSheet('#readerSettingsSheet');
 }
 
-// compartilhar mangá — link bonito (?manga=ID) via Web Share API ou copiar
-async function shareManga() {
+// abrir menu de compartilhamento do mangá
+function shareManga() {
+  const m = state.detail;
+  if (!m) return;
+  openSheet('#shareMangaSheet');
+}
+
+// copiar link do mangá — link bonito (?manga=ID) via Web Share API ou copiar
+async function copyMangaLink() {
   const m = state.detail;
   if (!m) return;
   const title = mangaTitle(m);
@@ -1820,7 +1907,7 @@ async function shareManga() {
   // fallback: copia o link
   try {
     await navigator.clipboard.writeText(url);
-    toast('Link copiado! 🔗');
+    toast('Link copiado!');
   } catch {
     prompt('Link do mangá:', url);
   }
@@ -1947,8 +2034,8 @@ function renderStatsSection() {
   }).join('');
   wrap.innerHTML = `
     <div class="stats-head">
-      <h3>📊 Suas estatísticas</h3>
-      <span class="stats-streak">🔥 ${s.streak} ${s.streak === 1 ? 'dia seguido' : 'dias seguidos'}</span>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; color: var(--accent);"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>Suas estatísticas</h3>
+      <span class="stats-streak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; color: var(--accent); fill: var(--accent);"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>${s.streak} ${s.streak === 1 ? 'dia seguido' : 'dias seguidos'}</span>
     </div>
     <div class="stats-bars">${bars}</div>
     <div class="stats-totals">
@@ -1956,12 +2043,85 @@ function renderStatsSection() {
       <div class="stat-total"><strong>${s.mangas}</strong><span>mangás</span></div>
       <div class="stat-total"><strong>${s.week.reduce((a, d) => a + d.n, 0)}</strong><span>nesta semana</span></div>
     </div>
-    <button class="stats-share" id="btnShareStats">📤 Compartilhar minhas stats</button>`;
+    <button class="stats-share" id="btnShareStats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="width: 14px; height: 14px; margin-right: 6px; color: inherit;"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>Compartilhar estatísticas</button>`;
   $('#btnShareStats').addEventListener('click', shareStatsCard);
 }
 
-// ── card de estatísticas compartilhável (canvas) ──
-function shareStatsCard() {
+// ── carregar imagem com CORS e fallback ──
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      // tenta carregar sem anonymous se falhar (pode tensionar o canvas mas tenta)
+      const img2 = new Image();
+      img2.onload = () => resolve(img2);
+      img2.onerror = () => resolve(null);
+      img2.src = src;
+    };
+    img.src = src;
+  });
+}
+
+// ── quebra de texto para canvas ──
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 2) {
+  const words = text.split(' ');
+  let line = '';
+  const lines = [];
+
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + ' ';
+    const metrics = ctx.measureText(testLine);
+    const testWidth = metrics.width;
+    if (testWidth > maxWidth && n > 0) {
+      lines.push(line.trim());
+      line = words[n] + ' ';
+    } else {
+      line = testLine;
+    }
+  }
+  lines.push(line.trim());
+
+  const linesToDraw = lines.slice(0, maxLines);
+  if (lines.length > maxLines) {
+    linesToDraw[maxLines - 1] = linesToDraw[maxLines - 1].substring(0, linesToDraw[maxLines - 1].length - 3) + '...';
+  }
+
+  for (let i = 0; i < linesToDraw.length; i++) {
+    ctx.fillText(linesToDraw[i], x, y + i * lineHeight);
+  }
+  return linesToDraw.length;
+}
+
+// ── desenha avatar padrão ──
+function drawDefaultAvatar(ctx, name, x = 540, y = 245, r = 45) {
+  ctx.save();
+  const avatarGrad = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+  avatarGrad.addColorStop(0, '#ffd60a');
+  avatarGrad.addColorStop(1, '#d97706');
+  ctx.fillStyle = avatarGrad;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = '#141300';
+  ctx.font = `900 ${Math.round(r * 0.9)}px system-ui, -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name.charAt(0).toUpperCase(), x, y);
+  ctx.restore();
+}
+
+// ── card de estatísticas compartilhável premium (canvas) ──
+async function shareStatsCard() {
+  toast('Gerando imagem de estatísticas… 🎨');
   const s = readingStats();
   const name = syncUser?.name?.split(' ')[0] || 'Leitor';
   const cv = document.createElement('canvas');
@@ -1969,128 +2129,360 @@ function shareStatsCard() {
   cv.height = 1350;
   const ctx = cv.getContext('2d');
 
-  // fundo navy com gradiente + glow amarelo
-  const bg = ctx.createLinearGradient(0, 0, 0, 1350);
-  bg.addColorStop(0, '#0d1326');
-  bg.addColorStop(0.55, '#070a12');
-  bg.addColorStop(1, '#0d1326');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, 1080, 1350);
-  const glow = ctx.createRadialGradient(540, 300, 50, 540, 300, 700);
-  glow.addColorStop(0, 'rgba(255,214,10,.08)');
-  glow.addColorStop(1, 'rgba(255,214,10,0)');
-  ctx.fillStyle = glow;
+  // fundo com gradiente radial profundo premium (obsidian)
+  const bgGrad = ctx.createRadialGradient(540, 675, 100, 540, 675, 800);
+  bgGrad.addColorStop(0, '#0d1322');
+  bgGrad.addColorStop(0.6, '#080c16');
+  bgGrad.addColorStop(1, '#04060b');
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, 1080, 1350);
 
-  // borda fina
-  ctx.strokeStyle = 'rgba(255,214,10,.35)';
+  // Efeitos de iluminação de estúdio (Glows neon)
+  // Glow superior direito (Dourado/Ambar quente)
+  const glowTR = ctx.createRadialGradient(900, 250, 0, 900, 250, 450);
+  glowTR.addColorStop(0, 'rgba(255, 214, 10, 0.16)');
+  glowTR.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glowTR;
+  ctx.fillRect(0, 0, 1080, 1350);
+
+  // Glow inferior esquerdo (Ciano/Azul neon)
+  const glowBL = ctx.createRadialGradient(180, 1100, 0, 180, 1100, 500);
+  glowBL.addColorStop(0, 'rgba(99, 102, 241, 0.15)');
+  glowBL.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glowBL;
+  ctx.fillRect(0, 0, 1080, 1350);
+
+  // Glow central atrás da contagem de streak
+  const glowCenter = ctx.createRadialGradient(540, 485, 0, 540, 485, 300);
+  glowCenter.addColorStop(0, 'rgba(255, 214, 10, 0.15)');
+  glowCenter.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glowCenter;
+  ctx.fillRect(0, 0, 1080, 1350);
+
+  // Linhas curvas de iluminação ambiente dinâmicas (efeito Spotify/Apple)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 214, 10, 0.035)';
   ctx.lineWidth = 4;
-  ctx.strokeRect(30, 30, 1020, 1290);
-
-  // logo: "manga" amarelo + "nana" branco, centralizado
-  ctx.textAlign = 'center';
-  ctx.font = '900 54px system-ui, sans-serif';
-  const wManga = ctx.measureText('manga').width;
-  const wNana = ctx.measureText('nana').width;
-  const gapL = 6;
-  const startX = 540 - (wManga + gapL + wNana) / 2;
-  ctx.fillStyle = '#ffd60a';
-  ctx.fillText('manga', startX + wManga / 2, 130);
-  ctx.fillStyle = '#e9edf5';
-  ctx.fillText('nana', startX + wManga + gapL + wNana / 2, 130);
-
-  // slogan
-  ctx.fillStyle = '#7d8597';
-  ctx.font = '400 26px system-ui, sans-serif';
-  ctx.fillText('Histórias que viram mundos', 540, 185);
-
-  // nome do usuário
-  ctx.fillStyle = '#e9edf5';
-  ctx.font = '800 40px system-ui, sans-serif';
-  ctx.fillText(`${name}, suas stats de leitura`, 540, 280);
-
-  // streak grande
-  ctx.fillStyle = '#ffd60a';
-  ctx.font = '900 170px system-ui, sans-serif';
-  ctx.fillText(`🔥 ${s.streak}`, 540, 480);
-  ctx.fillStyle = '#aeb6c6';
-  ctx.font = '600 32px system-ui, sans-serif';
-  ctx.fillText(s.streak === 1 ? 'dia seguido lendo' : 'dias seguidos lendo', 540, 530);
-
-  // divisória
-  ctx.strokeStyle = 'rgba(255,255,255,.08)';
-  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(140, 580);
-  ctx.lineTo(940, 580);
+  ctx.moveTo(-100, 400);
+  ctx.bezierCurveTo(300, 200, 700, 800, 1180, 600);
   ctx.stroke();
 
-  // gráfico de barras (últimos 7 dias)
+  ctx.strokeStyle = 'rgba(99, 102, 241, 0.035)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-100, 900);
+  ctx.bezierCurveTo(400, 1100, 600, 500, 1180, 800);
+  ctx.stroke();
+  ctx.restore();
+
+  // Padrão de grade de pontos discretos de alta qualidade
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+  for (let xG = 60; xG < 1020; xG += 40) {
+    for (let yG = 60; yG < 1290; yG += 40) {
+      ctx.beginPath();
+      ctx.arc(xG, yG, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Moldura/Bordas Premium
+  ctx.strokeStyle = 'rgba(255, 214, 10, 0.28)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(40, 40, 1000, 1270);
+
+  // Linha de acento interna extremamente sutil
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(55, 55, 970, 1240);
+
+  // Badge da logo no topo (Pílula moderna)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(410, 60, 260, 54, 27);
+  } else {
+    ctx.rect(410, 60, 260, 54);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  // Texto da logo centralizado no Badge
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 26px system-ui, -apple-system, sans-serif';
+  
+  const textManga = 'manga';
+  const textSep = ' • ';
+  const textNana = 'nana';
+  const wM = ctx.measureText(textManga).width;
+  const wS = ctx.measureText(textSep).width;
+  const wN = ctx.measureText(textNana).width;
+  const startX = 540 - (wM + wS + wN) / 2;
+
+  ctx.fillStyle = '#ffd60a';
+  ctx.fillText(textManga, startX + wM / 2, 87);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.fillText(textSep, startX + wM + wS / 2, 87);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(textNana, startX + wM + wS + wN / 2, 87);
+
+  // Slogan/Sub-cabeçalho decorativo
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.font = '700 12px system-ui, -apple-system, sans-serif';
+  ctx.letterSpacing = '5px';
+  ctx.fillText('ESTATÍSTICAS DE LEITURA', 540, 150);
+  ctx.letterSpacing = 'normal'; // reset
+
+  // Avatar da Conta (Se logado, renderiza com CORS, senão fallback elegante)
+  if (syncUser && syncUser.image) {
+    try {
+      const avatarImg = await loadImage(syncUser.image);
+      if (avatarImg) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(540, 245, 45, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(avatarImg, 540 - 45, 245 - 45, 90, 90);
+        ctx.restore();
+
+        // Borda dourada brilhante ao redor do avatar
+        ctx.strokeStyle = '#ffd60a';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(540, 245, 45, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        drawDefaultAvatar(ctx, name, 540, 245, 45);
+      }
+    } catch {
+      drawDefaultAvatar(ctx, name, 540, 245, 45);
+    }
+  } else {
+    drawDefaultAvatar(ctx, name, 540, 245, 45);
+  }
+
+  // Nome do usuário com estilo refinado
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 36px system-ui, -apple-system, sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(`${name}, seu legado Manganana`, 540, 330);
+
+  // Círculo decorativo da ofensiva (Streak)
+  const circleX = 540;
+  const circleY = 485;
+  const radius = 90;
+
+  // Sombra brilhante para o círculo de ofensiva
+  ctx.shadowColor = 'rgba(255, 214, 10, 0.22)';
+  ctx.shadowBlur = 35;
+  ctx.fillStyle = 'rgba(255, 214, 10, 0.05)';
+  ctx.beginPath();
+  ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Linha de borda brilhante
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = 'rgba(255, 214, 10, 0.4)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(circleX, circleY, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Desativa sombras
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+
+  // Ícone de chama dourada desenhado via vetor Path2D
+  const pathFlame = new Path2D("M12 2C11.5 2 8 6.5 8 11C8 13.5 10 15.5 12 15.5C14 15.5 16 13.5 16 11C16 6.5 12.5 2 12 2ZM12 5C12.5 7.5 14 9.5 14 11C14 12 13 13 12 13C11 13 10 12 10 11C10 9.5 11.5 7.5 12 5Z");
+  ctx.save();
+  ctx.translate(540 - 20, 415);
+  ctx.scale(1.6, 1.6); // Escala adequada
+  ctx.fillStyle = '#ffd60a';
+  ctx.fill(pathFlame);
+  ctx.restore();
+
+  // Número da ofensiva
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 74px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(s.streak), 540, 515);
+
+  // Rótulo da ofensiva
+  ctx.fillStyle = 'rgba(255, 214, 10, 0.95)';
+  ctx.font = '800 15px system-ui, -apple-system, sans-serif';
+  ctx.letterSpacing = '2px';
+  ctx.fillText(s.streak === 1 ? 'DIA SEGUIDO' : 'DIAS SEGUIDOS', 540, 545);
+  ctx.letterSpacing = 'normal'; // reset
+
+  // Divisória horizontal sutil degradê
+  const gradLine = ctx.createLinearGradient(140, 0, 940, 0);
+  gradLine.addColorStop(0, 'rgba(255,255,255,0)');
+  gradLine.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+  gradLine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.strokeStyle = gradLine;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(140, 610);
+  ctx.lineTo(940, 610);
+  ctx.stroke();
+
+  // Gráfico de barras (Últimos 7 dias)
   const max = Math.max(1, ...s.week.map((d) => d.n));
-  const bw = 70;
-  const gap = 26;
+  const bw = 80;
+  const gap = 24;
   const totalW = 7 * bw + 6 * gap;
   let x = (1080 - totalW) / 2;
-  const baseY = 860;
-  const labels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  const baseY = 810;
+  const labels = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+
   for (let i = 0; i < 7; i++) {
     const d = s.week[i];
-    const h = Math.max(14, (d.n / max) * 220);
-    const g = ctx.createLinearGradient(0, baseY - h, 0, baseY);
-    g.addColorStop(0, '#ffd60a');
-    g.addColorStop(1, 'rgba(255,214,10,.15)');
-    ctx.fillStyle = g;
+    const h = Math.max(18, (d.n / max) * 150);
+
+    // Fundo da barra
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.018)';
     ctx.beginPath();
-    ctx.roundRect(x, baseY - h, bw, h, 14);
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x, baseY - 150, bw, 150, 12);
+    } else {
+      ctx.rect(x, baseY - 150, bw, 150);
+    }
     ctx.fill();
-    // valor
-    ctx.fillStyle = d.n ? '#ffd60a' : '#4a5162';
-    ctx.font = '800 30px system-ui, sans-serif';
-    ctx.fillText(String(d.n), x + bw / 2, baseY - h - 16);
-    // label
-    ctx.fillStyle = '#7d8597';
-    ctx.font = '600 24px system-ui, sans-serif';
-    ctx.fillText(labels[i], x + bw / 2, baseY + 40);
+
+    // Gradiente bonito para a barra ativa
+    const barGrad = ctx.createLinearGradient(x, baseY - h, x, baseY);
+    if (d.n > 0) {
+      barGrad.addColorStop(0, '#ffd60a');
+      barGrad.addColorStop(1, '#d97706');
+    } else {
+      barGrad.addColorStop(0, 'rgba(255, 255, 255, 0.06)');
+      barGrad.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
+    }
+
+    ctx.fillStyle = barGrad;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x, baseY - h, bw, h, 12);
+    } else {
+      ctx.rect(x, baseY - h, bw, h);
+    }
+    ctx.fill();
+
+    // Borda fina cintilante para barras ativas
+    if (d.n > 0) {
+      ctx.strokeStyle = 'rgba(255, 214, 10, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Topo de acento brilhante
+      ctx.fillStyle = '#ffd60a';
+      ctx.fillRect(x, baseY - h, bw, 3);
+    }
+
+    // Texto com o valor lido no topo da barra
+    ctx.fillStyle = d.n ? '#ffd60a' : 'rgba(255, 255, 255, 0.2)';
+    ctx.font = '800 22px system-ui, -apple-system, sans-serif';
+    ctx.fillText(String(d.n), x + bw / 2, baseY - h - 14);
+
+    // Nome abreviado do dia da semana
+    ctx.fillStyle = d.n ? '#ffffff' : 'rgba(255, 255, 255, 0.35)';
+    ctx.font = '700 16px system-ui, -apple-system, sans-serif';
+    ctx.fillText(labels[i], x + bw / 2, baseY + 30);
+
     x += bw + gap;
   }
-  ctx.fillStyle = '#aeb6c6';
-  ctx.font = '500 24px system-ui, sans-serif';
-  ctx.fillText('últimos 7 dias', 540, 940);
 
-  // totais em cards
+  // Rótulo da seção de gráfico
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.font = '700 13px system-ui, -apple-system, sans-serif';
+  ctx.letterSpacing = '4px';
+  ctx.fillText('HISTÓRICO DE LEITURA SEMANAL', 540, 880);
+  ctx.letterSpacing = 'normal'; // reset
+
+  // Cards de Totais
   const cards = [
-    { n: s.total, l: 'capítulos lidos' },
-    { n: s.mangas, l: 'mangás' },
-    { n: s.week.reduce((a, d) => a + d.n, 0), l: 'nesta semana' },
+    { n: s.total, l: 'capítulos lidos', icon: 'book' },
+    { n: s.mangas, l: 'mangás salvos', icon: 'grid' },
+    { n: s.week.reduce((a, d) => a + d.n, 0), l: 'lidos esta semana', icon: 'calendar' },
   ];
-  const cw = 260;
+  const cw = 280;
   const cgap = 30;
   const cTotal = 3 * cw + 2 * cgap;
   let cx = (1080 - cTotal) / 2;
-  const cy = 1030;
+  const cy = 945;
+
   for (const c of cards) {
-    ctx.fillStyle = 'rgba(255,255,255,.04)';
+    // Fundo do card translúcido escuro
+    const cardGrad = ctx.createLinearGradient(cx, cy, cx, cy + 160);
+    cardGrad.addColorStop(0, 'rgba(255, 255, 255, 0.04)');
+    cardGrad.addColorStop(1, 'rgba(255, 255, 255, 0.01)');
+    ctx.fillStyle = cardGrad;
     ctx.beginPath();
-    ctx.roundRect(cx, cy, cw, 170, 20);
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(cx, cy, cw, 160, 24);
+    } else {
+      ctx.rect(cx, cy, cw, 160);
+    }
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,214,10,.25)';
-    ctx.lineWidth = 2;
+
+    // Borda fina moderna
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = '#ffd60a';
-    ctx.font = '900 56px system-ui, sans-serif';
-    ctx.fillText(String(c.n), cx + cw / 2, cy + 80);
-    ctx.fillStyle = '#aeb6c6';
-    ctx.font = '500 24px system-ui, sans-serif';
-    ctx.fillText(c.l, cx + cw / 2, cy + 130);
+
+    // Desenha o ícone vetorial correspondente no card
+    ctx.save();
+    ctx.translate(cx + 28, cy + 28);
+    ctx.strokeStyle = '#ffd60a';
+    ctx.lineWidth = 2.25;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (c.icon === 'book') {
+      const p = new Path2D("M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z");
+      ctx.scale(1.1, 1.1);
+      ctx.stroke(p);
+    } else if (c.icon === 'grid') {
+      const p = new Path2D("M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z");
+      ctx.scale(1.1, 1.1);
+      ctx.stroke(p);
+    } else if (c.icon === 'calendar') {
+      const p = new Path2D("M19 4H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-7 15l-5-5 1.41-1.41L12 16.17l7.59-7.59L21 10l-9 9z");
+      ctx.scale(1.1, 1.1);
+      ctx.stroke(p);
+    }
+    ctx.restore();
+
+    // Número do total
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 48px system-ui, -apple-system, sans-serif';
+    ctx.fillText(String(c.n), cx + cw - 28, cy + 65);
+
+    // Rótulo descritivo
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.font = '700 15px system-ui, -apple-system, sans-serif';
+    ctx.fillText(c.l, cx + cw / 2, cy + 120);
+
     cx += cw + cgap;
   }
 
-  // rodapé
-  ctx.fillStyle = '#5b6372';
-  ctx.font = '500 24px system-ui, sans-serif';
-  ctx.fillText('manganana.vercel.app', 540, 1295);
+  // Rodapé sutil com a URL da plataforma
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.font = '700 16px system-ui, -apple-system, sans-serif';
+  ctx.letterSpacing = '4px';
+  ctx.fillText('MANGANANA.VERCEL.APP', 540, 1220);
+  ctx.letterSpacing = 'normal'; // reset
 
-  // compartilha ou baixa
+  // Executa o compartilhamento nativo ou fallback de download
   cv.toBlob(async (blob) => {
     if (!blob) return;
     const file = new File([blob], 'manganana-stats.png', { type: 'image/png' });
@@ -2098,16 +2490,322 @@ function shareStatsCard() {
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Minhas stats no Manganana', text: `🔥 ${s.streak} dias seguidos lendo mangá!`, files: [file] });
-        toast('Compartilhado! 📤');
+        toast('Compartilhado!');
         return;
       } catch (e) { /* cancelado */ }
     }
-    // fallback: baixa a imagem
+    // download fallback
     const a = document.createElement('a');
     a.href = url;
     a.download = 'manganana-stats.png';
     a.click();
-    toast('Imagem salva! 📥');
+    toast('Imagem salva!');
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }, 'image/png');
+}
+
+// ── gerar e compartilhar cartão lindo do mangá favorito (canvas com fundo desfocado) ──
+async function shareMangaCard() {
+  const m = state.detail;
+  if (!m) return;
+  
+  toast('Gerando cartão do mangá… 🎨');
+  
+  const title = mangaTitle(m);
+  const author = mangaAuthors(m) || 'Autor Desconhecido';
+  const coverUrl = mangaCoverFull(m);
+  
+  const score = anilistScore(state.premium);
+  const statusPt = anilistStatusPt(state.premium?.status) || (m.attributes?.status === 'ongoing' ? 'Publicando' : m.attributes?.status === 'completed' ? 'Completo' : 'N/A');
+  const capsCount = state.premium?.chapters || state.chapters?.length || 'N/A';
+  
+  const cv = document.createElement('canvas');
+  cv.width = 1080;
+  cv.height = 1350;
+  const ctx = cv.getContext('2d');
+  
+  // 1. Fundo base escuro obsidian
+  ctx.fillStyle = '#0a0d14';
+  ctx.fillRect(0, 0, 1080, 1350);
+  
+  // 2. Carrega a capa para desenhar desfocada de fundo e nítida no centro
+  let img = null;
+  if (coverUrl) {
+    img = await loadImage(coverUrl);
+  }
+  
+  if (img) {
+    // Desenha capa desfocada no fundo
+    ctx.save();
+    ctx.filter = 'blur(45px) brightness(0.28) saturate(1.3)';
+    // Calculo para cobrir preenchendo proporcionalmente
+    const scale = Math.max(1080 / img.width, 1350 / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    const dx = (1080 - w) / 2;
+    const dy = (1350 - h) / 2;
+    ctx.drawImage(img, dx, dy, w, h);
+    ctx.restore();
+  } else {
+    // Fallback: Lindo gradiente abstrato com tons de roxo/ouro
+    const abstractGrad = ctx.createRadialGradient(540, 675, 100, 540, 675, 800);
+    abstractGrad.addColorStop(0, '#1e1b4b');
+    abstractGrad.addColorStop(0.5, '#0f172a');
+    abstractGrad.addColorStop(1, '#020617');
+    ctx.fillStyle = abstractGrad;
+    ctx.fillRect(0, 0, 1080, 1350);
+  }
+  
+  // Efeitos de iluminação de estúdio adicionais
+  const glowTop = ctx.createRadialGradient(540, 200, 0, 540, 200, 450);
+  glowTop.addColorStop(0, 'rgba(255, 214, 10, 0.08)');
+  glowTop.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glowTop;
+  ctx.fillRect(0, 0, 1080, 1350);
+  
+  const glowBottom = ctx.createRadialGradient(540, 1100, 0, 540, 1100, 450);
+  glowBottom.addColorStop(0, 'rgba(99, 102, 241, 0.1)');
+  glowBottom.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glowBottom;
+  ctx.fillRect(0, 0, 1080, 1350);
+
+  // Moldura dourada elegante
+  ctx.strokeStyle = 'rgba(255, 214, 10, 0.22)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(40, 40, 1000, 1270);
+  
+  // Linha fina interna
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(55, 55, 970, 1240);
+
+  // Badge da logo no topo
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(410, 60, 260, 54, 27);
+  } else {
+    ctx.rect(410, 60, 260, 54);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  // Logo text
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 26px system-ui, -apple-system, sans-serif';
+  const textManga = 'manga';
+  const textSep = ' • ';
+  const textNana = 'nana';
+  const wM = ctx.measureText(textManga).width;
+  const wS = ctx.measureText(textSep).width;
+  const wN = ctx.measureText(textNana).width;
+  const startX = 540 - (wM + wS + wN) / 2;
+
+  ctx.fillStyle = '#ffd60a';
+  ctx.fillText(textManga, startX + wM / 2, 87);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.fillText(textSep, startX + wM + wS / 2, 87);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(textNana, startX + wM + wS + wN / 2, 87);
+
+  // Slogan
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.font = '700 11px system-ui, -apple-system, sans-serif';
+  ctx.letterSpacing = '5px';
+  ctx.fillText('RECOMENDAÇÃO DE MANGÁ', 540, 145);
+  ctx.letterSpacing = 'normal';
+
+  // 3. Desenha a Capa Nítida Centralizada
+  const cw = 340;
+  const ch = 510;
+  const cx = 540 - cw / 2;
+  const cy = 185;
+  
+  if (img) {
+    ctx.save();
+    // Sombra projetada da capa
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    ctx.shadowBlur = 40;
+    ctx.shadowOffsetY = 15;
+    ctx.fillStyle = '#0a0d14';
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(cx, cy, cw, ch, 20);
+    } else {
+      ctx.rect(cx, cy, cw, ch);
+    }
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    
+    // Recorte de cantos arredondados
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(cx, cy, cw, ch, 20);
+    } else {
+      ctx.rect(cx, cy, cw, ch);
+    }
+    ctx.clip();
+    ctx.drawImage(img, cx, cy, cw, ch);
+    ctx.restore();
+    
+    // Borda fina na capa
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(cx, cy, cw, ch, 20);
+    } else {
+      ctx.rect(cx, cy, cw, ch);
+    }
+    ctx.stroke();
+  } else {
+    // Capa faltante placeholder
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(cx, cy, cw, ch, 20);
+    } else {
+      ctx.rect(cx, cy, cw, ch);
+    }
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '800 24px system-ui, -apple-system, sans-serif';
+    ctx.fillText('Sem Capa', 540, cy + ch/2);
+  }
+
+  // 4. Título do Mangá
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 42px system-ui, -apple-system, sans-serif';
+  // wrapText inteligente para não estourar
+  const textLinesDrawn = wrapText(ctx, title, 540, 755, 840, 48, 2);
+  
+  // 5. Autor
+  const authorY = 755 + (textLinesDrawn * 48) + 10;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.font = '700 18px system-ui, -apple-system, sans-serif';
+  ctx.fillText(author, 540, authorY);
+  
+  // 6. Grid de 3 Estatísticas (Nota, Status, Capítulos)
+  const statsY = authorY + 40;
+  const badgeW = 260;
+  const badgeH = 135;
+  const badgeGap = 30;
+  const totalStatsW = 3 * badgeW + 2 * badgeGap;
+  let startBadgeX = (1080 - totalStatsW) / 2;
+  
+  const mstats = [
+    { v: score != null ? `${score}/10` : 'N/A', l: 'AVALIAÇÃO', icon: 'star' },
+    { v: statusPt, l: 'STATUS', icon: 'status' },
+    { v: capsCount ? `${capsCount} caps` : 'N/A', l: 'CAPÍTULOS', icon: 'caps' }
+  ];
+  
+  for (const ms of mstats) {
+    // Card de vidro translúcido
+    const cardGrad = ctx.createLinearGradient(startBadgeX, statsY, startBadgeX, statsY + badgeH);
+    cardGrad.addColorStop(0, 'rgba(255, 255, 255, 0.05)');
+    cardGrad.addColorStop(1, 'rgba(255, 255, 255, 0.01)');
+    ctx.fillStyle = cardGrad;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(startBadgeX, statsY, badgeW, badgeH, 20);
+    } else {
+      ctx.rect(startBadgeX, statsY, badgeW, badgeH);
+    }
+    ctx.fill();
+    
+    // Borda fina
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Ícone decorativo pequeno no canto esquerdo ou topo
+    ctx.save();
+    ctx.translate(startBadgeX + 24, statsY + 24);
+    ctx.strokeStyle = '#ffd60a';
+    ctx.lineWidth = 2.25;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    if (ms.icon === 'star') {
+      const p = new Path2D("M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z");
+      ctx.scale(0.85, 0.85);
+      ctx.stroke(p);
+    } else if (ms.icon === 'status') {
+      const p = new Path2D("M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9 12l2 2 4-4");
+      ctx.scale(0.85, 0.85);
+      ctx.stroke(p);
+    } else if (ms.icon === 'caps') {
+      const p = new Path2D("M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z");
+      ctx.scale(0.85, 0.85);
+      ctx.stroke(p);
+    }
+    ctx.restore();
+    
+    // Valor (alinhado à direita de forma harmoniosa)
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 32px system-ui, -apple-system, sans-serif';
+    ctx.fillText(ms.v, startBadgeX + badgeW - 24, statsY + 54);
+    
+    // Rótulo descritivo
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.font = '800 12px system-ui, -apple-system, sans-serif';
+    ctx.letterSpacing = '1px';
+    ctx.fillText(ms.l, startBadgeX + badgeW / 2, statsY + 104);
+    ctx.letterSpacing = 'normal';
+    
+    startBadgeX += badgeW + badgeGap;
+  }
+  
+  // 7. Descrição curta do mangá (Primeiros 120 caracteres)
+  const descText = mangaDesc(m);
+  if (descText) {
+    const descY = statsY + badgeH + 45;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.font = '500 18px system-ui, -apple-system, sans-serif';
+    
+    // Pega um trecho de descrição e quebra em até 2 linhas
+    const descSnippet = descText.length > 130 ? descText.substring(0, 130) + '...' : descText;
+    wrapText(ctx, descSnippet, 540, descY, 800, 28, 2);
+  }
+  
+  // 8. Rodapé branding
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.font = '800 15px system-ui, -apple-system, sans-serif';
+  ctx.letterSpacing = '3px';
+  ctx.fillText('LEIA NO MANGANANA • MANGANANA.VERCEL.APP', 540, 1225);
+  ctx.letterSpacing = 'normal';
+  
+  // 9. Processa o Blob para compartilhar ou baixar
+  cv.toBlob(async (blob) => {
+    if (!blob) return;
+    const filename = `manganana-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+    const file = new File([blob], filename, { type: 'image/png' });
+    const url = URL.createObjectURL(blob);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Cartão de ${title}`, text: `Olha só esse mangá fantástico que estou lendo no Manganana: ${title}!`, files: [file] });
+        toast('Compartilhado com sucesso!');
+        return;
+      } catch (e) { /* usuário cancelou */ }
+    }
+    // download fallback
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    toast('Imagem salva com sucesso!');
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   }, 'image/png');
 }
@@ -2142,7 +2840,7 @@ function renderMyProfile() {
   const lists = myLists();
   const counts = Object.entries(LIST_NAMES)
     .filter(([k]) => (lists[k] || []).length)
-    .map(([k, label]) => `<span class="ptag">${label} ${lists[k].length}</span>`);
+    .map(([k, label]) => `<span class="ptag">${LIST_ICONS[k] || ''}${label} ${lists[k].length}</span>`);
   tags.innerHTML = counts.join('');
   // bio + banner
   const bio = $('#profileBio');
@@ -2188,11 +2886,16 @@ function renderListsSection() {
   const any = Object.values(lists).some((l) => l.length);
   if (!any) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `
-    <div class="lists-head"><h2>Minhas listas 📚</h2></div>
+    <div class="lists-head">
+      <h2>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        <span>Minhas listas</span>
+      </h2>
+    </div>
     ${Object.entries(LIST_NAMES).filter(([k]) => (lists[k] || []).length).map(([k, label]) => {
       const items = lists[k].slice(0, 6);
       return `<div class="list-section">
-        <div class="list-title"><span>${label}</span><small>${lists[k].length}</small></div>
+        <div class="list-title"><span>${LIST_ICONS[k] || ''}${label}</span><small>${lists[k].length}</small></div>
         <div class="list-row">${items.map((it) => `
           <div class="list-mini" onclick="openDetail('${it.id}')">
             ${it.cover ? `<img src="${esc(it.cover)}" alt="" />` : `<div class="lm-ph">${esc((it.title || '?')[0])}</div>`}
@@ -2279,7 +2982,7 @@ async function saveProfile() {
     if (pendingBanner) { myProfileData.banner = pendingBanner; pendingBanner = null; }
     closeEditSheet();
     renderMyProfile();
-    toast('Perfil salvo! ✨');
+    toast('Perfil salvo');
   } catch { toast('Erro de rede — tente de novo'); }
 }
 
@@ -2445,14 +3148,14 @@ async function syncNow() {
   toast('Sincronizando…');
   try {
     const token = await window.Clerk.session?.getToken();
-    if (!token) { toast('⚠️ Sem token de sessão — recarregue e tente de novo'); return; }
+    if (!token) { toast('Sem token de sessão — recarregue e tente de novo'); return; }
     const r = await fetch('/api/sync', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ data: { favs: state.favs, history: state.history, readCount: load('readCount', {}), lastSeen: load('lastSeen', {}), settings: state.settings } }),
     });
     const j = await r.json().catch(() => ({}));
-    if (r.status === 200 && j.ok) toast('Sincronizado! ☁️');
+    if (r.status === 200 && j.ok) toast('Sincronizado');
     else toast('Erro ' + r.status + ': ' + (j.error || 'API recusou o token'));
   } catch (e) {
     toast('Erro: ' + (e?.message || 'rede'));
@@ -2487,7 +3190,7 @@ async function changeProfilePhoto(file) {
     syncUser.image = user.imageUrl || '';
     renderAccount();
     schedulePush(); // salva a URL da foto na nuvem também
-    toast('Foto atualizada! 📸');
+    toast('Foto atualizada');
   } catch (e) {
     console.warn('upload foto:', e);
     toast('Erro ao atualizar foto');
@@ -2572,7 +3275,7 @@ async function pullSync() {
       return;
     }
     mergeData(cloud);
-    toast('Dados sincronizados ☁️');
+    toast('Dados sincronizados');
   } catch { /* silencioso */ }
 }
 
@@ -2715,6 +3418,9 @@ function bindGlobal() {
   $('#btnDetailBack').addEventListener('click', () => switchTab('home'));
   $('#btnDetailFav').addEventListener('click', toggleFav);
   $('#btnDetailShare').addEventListener('click', shareManga);
+  $('#closeShareManga').addEventListener('click', closeSheets);
+  $('#btnShareMangaLink').addEventListener('click', () => { closeSheets(); copyMangaLink(); });
+  $('#btnShareMangaStory').addEventListener('click', () => { closeSheets(); shareMangaCard(); });
   $('#btnSeeAllBack').addEventListener('click', () => {
     showView('view-home');
     $('#bottomNav').classList.remove('hidden');
@@ -2878,7 +3584,7 @@ function registerSW() {
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
     hideInstallBtn();
-    toast('Manganana instalado! 🎉');
+    toast('Manganana instalado');
   });
 }
 
@@ -2955,7 +3661,7 @@ async function downloadChapter() {
     const list = downloadsList().filter((d) => d.id !== dl.id);
     list.unshift(dl);
     store('downloads', list.slice(0, 40));
-    toast('Capítulo baixado! 📥 ' + done + ' páginas p/ leitura offline');
+    toast('Capítulo baixado (' + done + ' páginas p/ leitura offline)');
     if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
   } catch (e) {
     toast('Falha ao baixar: ' + e.message);
@@ -2974,7 +3680,7 @@ async function downloadAllChapters() {
   // ignora capítulos já baixados
   const have = new Set(downloadsList().map((d) => d.id));
   const todo = chs.filter((c) => !have.has(c.id) && !c._provider);
-  if (!todo.length) { toast('Todos os capítulos já estão baixados 📥'); return; }
+  if (!todo.length) { toast('Todos os capítulos já estão baixados'); return; }
 
   const prog = $('#dlAllProgress');
   const bar = $('#dlAllBar');
@@ -3015,7 +3721,7 @@ async function downloadAllChapters() {
   }
   if (prog) prog.hidden = true;
   renderDownloads();
-  toast(okCount ? `✅ ${okCount} capítulos baixados!` : 'Nenhum capítulo pôde ser baixado');
+  toast(okCount ? `${okCount} capítulos baixados!` : 'Nenhum capítulo pôde ser baixado');
 }
 
 async function deleteDownload(id) {
@@ -3107,7 +3813,13 @@ function deleteMangaDownloads(mangaId) {
 }
 
 /* ---------- listas personalizadas ---------- */
-const LIST_NAMES = { lendo: '📖 Lendo', vouLer: '📌 Vou ler', completo: '✅ Completo', dropei: '🗑️ Dropei' };
+const LIST_NAMES = { lendo: 'Lendo', vouLer: 'Vou ler', completo: 'Completo', dropei: 'Dropei' };
+const LIST_ICONS = {
+  lendo: `<svg class="list-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
+  vouLer: `<svg class="list-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`,
+  completo: `<svg class="list-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`,
+  dropei: `<svg class="list-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`
+};
 
 // pega as listas do usuário (local + nuvem)
 function myLists() { return load('lists', { lendo: [], vouLer: [], completo: [], dropei: [] }); }
@@ -3138,7 +3850,7 @@ function openListPicker() {
       ${Object.entries(LIST_NAMES).map(([key, label]) => {
         const active = inWhich === key;
         return `<button class="list-pick ${active ? 'active' : ''}" onclick="setMangaList('${key}')">
-          <span>${label}</span><small>${active ? '✓' : ''}</small>
+          <span>${LIST_ICONS[key] || ''}${label}</span><small>${active ? '✓' : ''}</small>
         </button>`;
       }).join('')}
       ${inWhich ? `<button class="list-remove" onclick="setMangaList('')">Remover de todas as listas</button>` : ''}
@@ -3158,7 +3870,7 @@ async function setMangaList(listName) {
   }
   saveLists(clean);
   $('#listSheet')?.classList.remove('open');
-  toast(listName ? `Adicionado em ${LIST_NAMES[listName].split(' ')[1]} 📚` : 'Removido das listas');
+  toast(listName ? `Adicionado em ${LIST_NAMES[listName]}` : 'Removido das listas');
   // sincroniza na nuvem
   try {
     const token = await window.Clerk.session?.getToken();
@@ -3214,7 +3926,7 @@ async function checkNewChapters() {
     if (changed) store('newChapters', newIds);
     if (news.length) {
       const total = news.length > 1 ? ` (e mais ${news.length - 1})` : '';
-      toast(`🔔 Capítulo novo: ${news[0].title} ${news[0].num}${total}`);
+      toast(`Novo capítulo: ${news[0].title} ${news[0].num}${total}`);
       renderLibrary();
     }
   } catch { /* silencioso */ }
@@ -3248,22 +3960,37 @@ function bindToTop() {
 
 /* ---------- boot ---------- */
 (async function boot() {
-  bindGlobal();
-  bindPageLoad();
-  initExplore();
-  bindToTop();
-  await renderHome();
-  renderLibrary();
-  renderProfile();
-  registerSW();
-  checkNewChapters();
-  countVisit();
-  initClerk();
-  // deep link: ?manga=ID abre direto o mangá (links compartilhados)
-  const q = new URLSearchParams(location.search);
-  const mangaId = q.get('manga');
-  if (mangaId) { await openDetail(mangaId); history.replaceState({}, '', location.pathname); }
-  setTimeout(() => $('#splash').classList.add('hidden'), 700);
+  try {
+    bindGlobal();
+    bindPageLoad();
+    initExplore();
+    bindToTop();
+    await renderHome();
+    renderLibrary();
+    renderProfile();
+    registerSW();
+    checkNewChapters();
+    countVisit();
+    initClerk();
+    // deep link: ?manga=ID abre direto o mangá (links compartilhados)
+    const q = new URLSearchParams(location.search);
+    const mangaId = q.get('manga');
+    if (mangaId) {
+      try {
+        await openDetail(mangaId);
+        history.replaceState({}, '', location.pathname);
+      } catch (err) {
+        console.warn('Falha ao processar deep link:', err);
+      }
+    }
+  } catch (err) {
+    console.error('Erro durante inicialização (boot):', err);
+  } finally {
+    setTimeout(() => {
+      const splash = $('#splash');
+      if (splash) splash.classList.add('hidden');
+    }, 700);
+  }
 })();
 
 // expor p/ onclick inline

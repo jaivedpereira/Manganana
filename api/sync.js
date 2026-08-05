@@ -5,7 +5,7 @@
 //   DELETE /api/sync         → apaga os dados do usuário (logout com limpeza)
 
 const { createClerkClient, verifyToken } = require('@clerk/backend');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('./db.js');
 
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY,
