@@ -76,8 +76,31 @@ app.all('/api/proxy', makeHandler('./api/proxy.js'));
 app.all('/api/sync', makeHandler('./api/sync.js'));
 app.all('/api/weeb', makeHandler('./api/weeb.js'));
 
-// Serve frontend static assets
-app.use(express.static(__dirname));
+// Serve frontend static assets — MAS NUNCA arquivos sensíveis do backend
+// (.env, .git, server.js, package.json, api/*, node_modules)
+const PUBLIC_FILES = new Set([
+  'index.html', 'app.js', 'styles.css', 'sw.js',
+  'manifest.webmanifest', 'banner.svg', 'icons/favicon-64.png',
+  'icons/icon-192.png', 'icons/icon-512.png',
+]);
+
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const rel = decodeURIComponent(req.path).replace(/^\/+/, '');
+  // raiz → index.html
+  if (rel === '' || rel === 'index.html') {
+    return res.sendFile(path.join(__dirname, 'index.html'), (err) => {
+      if (err) next();
+    });
+  }
+  // só serve arquivos da allowlist; tudo mais cai no catch-all (index.html)
+  if (PUBLIC_FILES.has(rel)) {
+    return res.sendFile(path.join(__dirname, rel), (err) => {
+      if (err) next();
+    });
+  }
+  next();
+});
 
 // Fallback index.html for single-page routing or other requests
 app.get('/*splat', (req, res) => {

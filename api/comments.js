@@ -8,6 +8,7 @@
 
 const { createClerkClient, verifyToken } = require('@clerk/backend');
 const { MongoClient, ObjectId } = require('./db.js');
+const { applyCors } = require('./cors.js');
 
 const clerk = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY,
@@ -53,9 +54,9 @@ async function userProfile(userId) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (!applyCors(req, res) && req.headers.origin) {
+    return res.status(403).json({ ok: false, error: 'Origem não permitida' });
+  }
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
@@ -189,6 +190,6 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Método não permitido' });
   } catch (e) {
     console.error('comments error:', e.message);
-    return res.status(500).json({ ok: false, error: e.message });
+    return res.status(500).json({ ok: false, error: 'Erro interno do servidor' });
   }
 };
