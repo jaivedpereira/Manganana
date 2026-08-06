@@ -2958,10 +2958,12 @@ function renderMyProfile() {
     if (isLogged && syncUser.image) {
       hImg.src = syncUser.image;
       hImg.hidden = false;
+      hLetter.hidden = true;
       hLetter.textContent = '';
     } else {
       hImg.hidden = true;
       hImg.removeAttribute('src');
+      hLetter.hidden = false;
       hLetter.textContent = (syncUser?.name || 'L')[0];
     }
   }
