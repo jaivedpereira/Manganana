@@ -72,6 +72,19 @@ button:active svg{transform:scale(.9)}
 .icon-btn:active{background:var(--accent-soft);color:var(--accent)}
 .avatar-btn{background:linear-gradient(135deg,#3d4a75,#232c4a)}
 .avatar-btn svg{width:20px;height:20px;color:#cdd6f2}
+#btnProfile{overflow:visible;position:relative}
+#btnProfileImg{
+  width:34px;height:34px;border-radius:50%;object-fit:cover;
+  border:2px solid rgba(255,214,10,.8);box-shadow:0 2px 8px rgba(0,0,0,.4);
+  display:block;
+}
+#btnProfileLetter{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,#3d4a75,#232c4a);
+  color:#cdd6f2;font-size:14px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid rgba(255,214,10,.55);
+}
 
 /* ===== HERO (carrossel) ===== */
 .hero-skeleton{position:relative;margin-bottom:24px;border-radius:var(--radius);box-shadow:0 12px 36px rgba(0,0,0,0.25);overflow:hidden}
@@ -477,7 +490,7 @@ button:active svg{transform:scale(.9)}
 #view-profile .content{position:relative;z-index:1}
 .profile-hero{margin:0 0 14px}
 .profile-head{display:flex;align-items:flex-end;gap:14px;padding:0 16px;position:relative;z-index:3}
-.profile-head .avatar.big{width:84px;height:84px;border-radius:26px;font-size:32px;font-weight:800;border:3px solid var(--bg);outline:2px solid rgba(255,214,10,.55);box-shadow:0 10px 30px rgba(0,0,0,.55);overflow:hidden;background:linear-gradient(135deg,#3d4a75,#232c4a)}
+.profile-head .avatar.big{width:84px;height:112px;border-radius:20px;font-size:32px;font-weight:800;border:3px solid var(--bg);outline:2px solid rgba(255,214,10,.55);box-shadow:0 10px 30px rgba(0,0,0,.55);overflow:hidden;background:linear-gradient(135deg,#3d4a75,#232c4a);display:flex;align-items:center;justify-content:center}
 .profile-head .avatar.big img{width:100%;height:100%;object-fit:cover}
 .ph-info{flex:1;min-width:0}
 .ph-name-row{display:flex;align-items:center;gap:8px}

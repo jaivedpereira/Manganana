@@ -2951,6 +2951,20 @@ function renderMyProfile() {
   const av = $('#profileAvatar');
   if (isLogged && syncUser.image) av.innerHTML = `<img src="${esc(syncUser.image)}" alt="" />`;
   else av.textContent = (syncUser?.name || 'L')[0];
+  // avatar do header (botão de perfil no topo)
+  const hImg = $('#btnProfileImg');
+  const hLetter = $('#btnProfileLetter');
+  if (hImg && hLetter) {
+    if (isLogged && syncUser.image) {
+      hImg.src = syncUser.image;
+      hImg.hidden = false;
+      hLetter.textContent = '';
+    } else {
+      hImg.hidden = true;
+      hImg.removeAttribute('src');
+      hLetter.textContent = (syncUser?.name || 'L')[0];
+    }
+  }
   // nome/email
   $('#profileName').textContent = syncUser?.name || 'Leitor';
   $('#profileEmail').textContent = syncUser?.email || 'Leitor do Manganana';
