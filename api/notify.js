@@ -146,24 +146,57 @@ function escapeXml(s) {
 }
 
 // gera o card visual (SVG → PNG) com as stats do mês
-async function buildMonthlyCard(data) {
+async function buildMonthlyCard(data, coverB64) {
   const sharp = require('sharp');
   const W = 1080, H = 1350;
   const NAVY = '#0b1120', NAVY2 = '#111a30', GOLD = '#ffd60a', TEXT = '#e8edf7', MUTED = '#8a94ad';
-  const BAR = '#ffd60a';
-  const maxCh = Math.max(...data.top.map(t => t.chapters), 1);
-  const barH = 64, barGap = 26;
-  const chartTop = 640;
-  const barStartX = 430;
 
-  let bars = '';
+  const coverSvg = coverB64
+    ? `<image href="${coverB64}" x="30" y="120" width="170" height="240" rx="18" preserveAspectRatio="xMidYMid slice"/>
+       <rect x="30" y="120" width="170" height="240" rx="18" fill="none" stroke="#2a3a60" stroke-width="3"/>`
+    : `<rect x="30" y="120" width="170" height="240" rx="18" fill="${NAVY2}" stroke="#2a3a60" stroke-width="3"/>
+       <text x="115" y="250" text-anchor="middle" font-size="50" fill="${GOLD}">📖</text>`;
+
+  const stats = [
+    { v: data.chapters, l: 'capítulos lidos' },
+    { v: data.mangas, l: 'mangás' },
+    { v: data.days, l: 'dias ativos' },
+    { v: data.streak, l: 'streak 🔥' },
+  ];
+  const cardW = 196, gap = 14, startX = 230;
+  let statsSvg = '';
+  stats.forEach((s, i) => {
+    const x = startX + i * (cardW + gap);
+    statsSvg += `
+    <rect x="${x}" y="120" width="${cardW}" height="240" rx="18" fill="${NAVY2}" stroke="#1e2a4a" stroke-width="2"/>
+    <text x="${x + cardW / 2}" y="225" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">${s.v}</text>
+    <text x="${x + cardW / 2}" y="285" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="22" fill="${MUTED}">${s.l}</text>`;
+  });
+
+  const maxCh = Math.max(...data.top.map(t => t.chapters), 1);
+  const barH = 52, barGap = 18;
+  let barsSvg = '';
   data.top.forEach((t, i) => {
-    const w = Math.max(60, (t.chapters / maxCh) * 560);
-    const y = chartTop + i * (barH + barGap);
-    bars += `
-    <text x="30" y="${y + 40}" font-family="Segoe UI, sans-serif" font-size="30" font-weight="bold" fill="${TEXT}">${i === 0 ? '🏆' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•'} ${escapeXml(t.title)}</text>
-    <rect x="${barStartX}" y="${y}" width="${w}" height="${barH}" rx="12" fill="${i === 0 ? BAR : '#f0a500'}" opacity="0.92"/>
-    <text x="${barStartX + w + 20}" y="${y + 45}" font-family="Segoe UI, sans-serif" font-size="32" font-weight="bold" fill="${GOLD}">${t.chapters}</text>`;
+    const w = Math.max(60, (t.chapters / maxCh) * 520);
+    const y = 560 + i * (barH + barGap);
+    barsSvg += `
+    <text x="30" y="${y + 34}" font-family="Segoe UI, sans-serif" font-size="24" font-weight="bold" fill="${TEXT}">${i === 0 ? '🏆' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•'} ${escapeXml(truncate(t.title))}</text>
+    <rect x="500" y="${y}" width="${w}" height="${barH}" rx="10" fill="${i === 0 ? GOLD : '#f0a500'}" opacity="0.92"/>
+    <text x="${500 + w + 18}" y="${y + 37}" font-family="Segoe UI, sans-serif" font-size="28" font-weight="bold" fill="${GOLD}">${t.chapters}</text>`;
+  });
+
+  const weekly = data.weekly || [0, 0, 0, 0];
+  const maxWk = Math.max(...weekly, 1);
+  const wkW = 80, wkGap = 22, wkTop = 940, wkH = 180;
+  let weeklySvg = '';
+  weekly.forEach((v, i) => {
+    const h = Math.max(16, (v / maxWk) * wkH);
+    const x = 30 + i * (wkW + wkGap);
+    const y = wkTop + wkH - h;
+    weeklySvg += `
+    <rect x="${x}" y="${y}" width="${wkW}" height="${h}" rx="10" fill="url(#wkGrad)" opacity="0.95"/>
+    <text x="${x + wkW / 2}" y="${y - 12}" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="26" font-weight="bold" fill="${GOLD}">${v}</text>
+    <text x="${x + wkW / 2}" y="${wkTop + wkH + 32}" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" fill="${MUTED}">Sem ${i + 1}</text>`;
   });
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
@@ -174,34 +207,36 @@ async function buildMonthlyCard(data) {
     <linearGradient id="goldline" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" stop-color="${GOLD}"/><stop offset="100%" stop-color="#ff8c00"/>
     </linearGradient>
+    <linearGradient id="wkGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd60a"/><stop offset="100%" stop-color="#b8860b"/>
+    </linearGradient>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <circle cx="900" cy="150" r="380" fill="#ffd60a" opacity="0.05"/>
-  <circle cx="150" cy="1150" r="320" fill="#ff8c00" opacity="0.05"/>
-  <text x="540" y="150" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="52" font-weight="800" fill="${TEXT}">📊 SEU MÊS NO</text>
-  <text x="540" y="225" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">MANGANANA</text>
-  <rect x="340" y="265" width="400" height="6" rx="3" fill="url(#goldline)"/>
-  <text x="540" y="320" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="32" fill="${MUTED}">${escapeXml(data.month)}</text>
-  <g>
-    <rect x="60" y="380" width="300" height="180" rx="20" fill="${NAVY2}" stroke="#1e2a4a" stroke-width="2"/>
-    <text x="210" y="450" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">${data.chapters}</text>
-    <text x="210" y="500" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="26" fill="${MUTED}">capítulos lidos</text>
-    <rect x="390" y="380" width="300" height="180" rx="20" fill="${NAVY2}" stroke="#1e2a4a" stroke-width="2"/>
-    <text x="540" y="450" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">${data.mangas}</text>
-    <text x="540" y="500" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="26" fill="${MUTED}">mangás diferentes</text>
-    <rect x="720" y="380" width="300" height="180" rx="20" fill="${NAVY2}" stroke="#1e2a4a" stroke-width="2"/>
-    <text x="870" y="450" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">${data.days}</text>
-    <text x="870" y="500" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="26" fill="${MUTED}">dias ativos</text>
-  </g>
-  <text x="30" y="600" font-family="Segoe UI, sans-serif" font-size="34" font-weight="800" fill="${TEXT}">MAIS LIDOS</text>
-  <rect x="30" y="618" width="70" height="5" rx="2.5" fill="${GOLD}"/>
-  ${bars}
-  <rect x="0" y="${H - 110}" width="${W}" height="110" fill="${NAVY2}"/>
+  <circle cx="950" cy="120" r="300" fill="#ffd60a" opacity="0.05"/>
+  <circle cx="100" cy="1200" r="300" fill="#ff8c00" opacity="0.05"/>
+  <text x="540" y="70" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="44" font-weight="800" fill="${TEXT}">📊 SEU MÊS NO</text>
+  <text x="540" y="120" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="56" font-weight="900" fill="${GOLD}">MANGANANA</text>
+  ${coverSvg}
+  ${statsSvg}
+  <rect x="380" y="410" width="320" height="5" rx="2.5" fill="url(#goldline)"/>
+  <text x="540" y="465" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="30" fill="${MUTED}">${escapeXml(data.month)}</text>
+  <text x="30" y="530" font-family="Segoe UI, sans-serif" font-size="32" font-weight="800" fill="${TEXT}">MAIS LIDOS</text>
+  <rect x="30" y="546" width="70" height="5" rx="2.5" fill="${GOLD}"/>
+  ${barsSvg}
+  <text x="30" y="865" font-family="Segoe UI, sans-serif" font-size="32" font-weight="800" fill="${TEXT}">RITMO SEMANAL</text>
+  <rect x="30" y="881" width="70" height="5" rx="2.5" fill="${GOLD}"/>
+  ${weeklySvg}
+  <rect x="0" y="${H - 105}" width="${W}" height="105" fill="${NAVY2}"/>
   <text x="540" y="${H - 55}" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="28" font-weight="700" fill="${TEXT}">📖 manganana.vercel.app</text>
-  <text x="540" y="${H - 20}" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" fill="${MUTED}">Histórias que viram mundos</text>
+  <text x="540" y="${H - 22}" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" fill="${MUTED}">Histórias que viram mundos</text>
 </svg>`;
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
   return png;
+}
+
+function truncate(s, max = 22) {
+  s = String(s);
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
 }
 
 // monta os dados do resumo a partir do histórico
@@ -228,12 +263,31 @@ async function buildMonthlySummary(history) {
   const monthName = new Date(firstOfThisMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   // top 4 mangás (limita pra caber no card)
   const top4 = mangaList.slice(0, 4).map(([id, m]) => ({ id, title: m.title, chapters: m.chapters }));
+
+  // streak: dias consecutivos lendo (contando do fim do mês pra trás)
+  let streak = 0;
+  const daySet = new Set(events.map(e => new Date(e.ts).getDate()));
+  const lastDay = new Date(firstOfThisMonth - 1).getDate();
+  for (let d = lastDay; d >= 1; d--) {
+    if (daySet.has(d)) { streak++; } else if (streak > 0) { break; }
+  }
+
+  // ritmo semanal: capítulos por semana do mês
+  const weekly = [0, 0, 0, 0, 0];
+  for (const e of events) {
+    const day = new Date(e.ts).getDate();
+    const wk = Math.min(4, Math.floor((day - 1) / 7));
+    weekly[wk]++;
+  }
+
   return {
     month: monthName,
     chapters: totalChapters,
     mangas: totalMangas,
     days: days.size,
+    streak,
     top: top4,
+    weekly,
   };
 }
 
@@ -253,7 +307,21 @@ async function monthlySummary(res) {
       if (!chatId) { skipped++; continue; }
       const summary = await buildMonthlySummary(data.history || []);
       if (!summary) { skipped++; continue; }
-      const png = await buildMonthlyCard(summary);
+      // busca a capa do mangá mais lido (pra ilustrar o card)
+      let coverB64 = '';
+      const topId = summary.top?.[0]?.id;
+      if (topId) {
+        try {
+          const d = await mdFetch(`${MD}/manga/${topId}?includes[]=cover_art`);
+          const rel = (d?.data?.relationships || []).find(r => r.type === 'cover_art');
+          const fn = rel?.attributes?.fileName;
+          if (fn) {
+            const img = await fetch(`https://uploads.mangadex.org/covers/${topId}/${fn}.512.jpg`).then(r => r.arrayBuffer());
+            coverB64 = 'data:image/jpeg;base64,' + Buffer.from(img).toString('base64');
+          }
+        } catch { coverB64 = ''; }
+      }
+      const png = await buildMonthlyCard(summary, coverB64);
       const caption = `📊 <b>Seu mês no Manganana</b>\n<i>${summary.month}</i>\n\n🔗 <a href="https://manganana.vercel.app">Continuar lendo →</a>`;
       const r = await sendTelegramPhoto(tgToken, chatId, png, caption);
       if (r.ok) sent++;
