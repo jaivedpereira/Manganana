@@ -108,6 +108,8 @@ async function handleWebhook(req, res) {
       '3️⃣ Pronto! 🔔 Você vai receber aviso quando sair capítulo novo dos mangás da sua lista.';
   } else if (text.startsWith('/id')) {
     reply = `Seu ID: <code>${chatId}</code>`;
+  } else if (text.startsWith('/resumo')) {
+    reply = '📊 O resumo mensal é enviado automaticamente no dia 1º de cada mês! 📖';
   } else {
     reply = 'Use /start para ver seu ID.';
   }
@@ -123,6 +125,70 @@ async function handleWebhook(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+// ===== resumo mensal: "Esse mês no Manganana" =====
+async function buildMonthlySummary(history) {
+  const now = new Date();
+  // mês passado (ex: se hoje é 12/08, resumo de julho? não — mês ATUAL até agora, mas no dia 1º, mês passado)
+  // o cron roda dia 1º: resume o mês que terminou
+  const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const events = (history || []).filter(h => h.ts && h.ts < firstOfThisMonth);
+  if (!events.length) return null;
+
+  const byManga = {};
+  const days = new Set();
+  for (const e of events) {
+    byManga[e.id] = byManga[e.id] || { title: e.title || 'Mangá', chapters: 0 };
+    byManga[e.id].chapters++;
+    days.add(new Date(e.ts).getDate());
+  }
+  const mangaList = Object.entries(byManga).sort((a, b) => b[1].chapters - a[1].chapters);
+  const top = mangaList[0];
+  const totalChapters = events.length;
+  const totalMangas = mangaList.length;
+
+  const monthName = new Date(firstOfThisMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const lines = [
+    `📊 <b>Seu mês no Manganana</b>`,
+    `<i>${monthName}</i>`,
+    ``,
+    `📖 <b>${totalChapters}</b> capítulo${totalChapters > 1 ? 's' : ''} lido${totalChapters > 1 ? 's' : ''}`,
+    `📚 <b>${totalMangas}</b> mangá${totalMangas > 1 ? 's' : ''} diferente${totalMangas > 1 ? 's' : ''}`,
+    `🗓️ <b>${days.size}</b> dia${days.size > 1 ? 's' : ''} ativo${days.size > 1 ? 's' : ''}`,
+    ``,
+    `🏆 <b>Mais lido:</b> ${top[1].title} (${top[1].chapters} cap.)`,
+  ];
+  if (mangaList[1]) lines.push(`🥈 ${mangaList[1][1].title} (${mangaList[1][1].chapters} cap.)`);
+  if (mangaList[2]) lines.push(`🥉 ${mangaList[2][1].title} (${mangaList[2][1].chapters} cap.)`);
+  lines.push(``, `🔗 <a href="https://manganana.vercel.app">Continuar lendo →</a>`);
+  return lines.join('\n');
+}
+
+// ===== resumo mensal: envia pra todo mundo que vinculou o bot =====
+async function monthlySummary(res) {
+  const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!tgToken) return res.json({ ok: false, error: 'bot não configurado' });
+  try {
+    const client = await getMongo();
+    const usersCol = client.db('manganana').collection('users');
+    const users = await usersCol.find({}).toArray();
+    let sent = 0, skipped = 0;
+
+    for (const u of users) {
+      const data = u.data || {};
+      const chatId = data.telegramChatId || data.tgChat;
+      if (!chatId) { skipped++; continue; }
+      const summary = await buildMonthlySummary(data.history || []);
+      if (!summary) { skipped++; continue; }
+      const r = await sendTelegram(tgToken, chatId, summary);
+      if (r.ok) sent++;
+    }
+    return res.json({ ok: true, mode: 'monthly', sent, skipped, ts: new Date().toISOString() });
+  } catch (e) {
+    console.error('monthly err:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+}
+
 module.exports = async function handler(req, res) {
   // ===== WEBHOOK do bot do Telegram (POST /api/notify sem auth = webhook) =====
   if (req.method === 'POST') {
@@ -136,6 +202,11 @@ module.exports = async function handler(req, res) {
   }
   if (req.method !== 'GET') {
     return res.status(405).json({ ok: false, error: 'use GET' });
+  }
+
+  // modo mensal: resumo "Esse mês no Manganana" (chamado dia 1º às 12h)
+  if (req.query.mode === 'monthly') {
+    return await monthlySummary(res);
   }
 
   const tgToken = process.env.TELEGRAM_BOT_TOKEN;
