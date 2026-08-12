@@ -3213,7 +3213,7 @@ function organizeProfileSections() {
 // troca a aba ativa do perfil
 function switchProfileTab(tab) {
   $$('.p-tab').forEach((b) => b.classList.toggle('active', b.dataset.ptab === tab));
-  const show = (id) => { const el = $(id); if (el) el.hidden = (id !== 'pSec' + tab[0].toUpperCase() + tab.slice(1)); };
+  const show = (id) => { const el = $('#' + id); if (el) el.hidden = (id !== 'pSec' + tab[0].toUpperCase() + tab.slice(1)); };
   show('pSecResumo');
   show('pSecListas');
   show('pSecAjustes');
