@@ -2178,6 +2178,122 @@ function logReading(mangaId, title, chapter) {
   log.push({ m: mangaId, t: title, c: chapter, d: Date.now() });
   // mantém só os últimos 500 eventos
   store(READING_LOG_KEY, log.slice(-500));
+  checkAchievements();
+}
+
+/* ========== CONQUISTAS (gamificação) ========== */
+const ACHIEVEMENTS = [
+  { id: 'cap10', icon: '📖', title: 'Primeiras páginas', desc: 'Leia 10 capítulos', check: (s) => s.total >= 10 },
+  { id: 'cap50', icon: '📚', title: 'Leitor dedicado', desc: 'Leia 50 capítulos', check: (s) => s.total >= 50 },
+  { id: 'cap200', icon: '🏛️', title: 'Biblioteca viva', desc: 'Leia 200 capítulos', check: (s) => s.total >= 200 },
+  { id: 'cap500', icon: '🔥', title: 'Viciado oficial', desc: 'Leia 500 capítulos', check: (s) => s.total >= 500 },
+  { id: 'cap1000', icon: '👑', title: 'Lenda do Manganana', desc: 'Leia 1.000 capítulos', check: (s) => s.total >= 1000 },
+  { id: 'streak3', icon: '🌱', title: 'Criando hábito', desc: '3 dias seguidos lendo', check: (s) => s.streak >= 3 },
+  { id: 'streak7', icon: '⚡', title: 'Semana completa', desc: '7 dias seguidos lendo', check: (s) => s.streak >= 7 },
+  { id: 'streak30', icon: '🌋', title: 'Mês de fogo', desc: '30 dias seguidos lendo', check: (s) => s.streak >= 30 },
+  { id: 'manga5', icon: '🎯', title: 'Explorador', desc: 'Leia 5 mangás diferentes', check: (s) => s.mangas >= 5 },
+  { id: 'manga15', icon: '🧭', title: 'Aventureiro', desc: 'Leia 15 mangás diferentes', check: (s) => s.mangas >= 15 },
+  { id: 'manga40', icon: '🌐', title: 'Colecionador de mundos', desc: 'Leia 40 mangás diferentes', check: (s) => s.mangas >= 40 },
+  { id: 'fav10', icon: '💛', title: 'Primeiros favoritos', desc: 'Favoritou 10 mangás', check: (s) => s.favs >= 10 },
+  { id: 'fav30', icon: '💎', title: 'Gosto refinado', desc: 'Favoritou 30 mangás', check: (s) => s.favs >= 30 },
+  { id: 'maratona', icon: '🏃', title: 'Maratonista', desc: 'Leia 20 capítulos em 1 dia', check: (s) => s.maxDay >= 20 },
+  { id: 'madrugada', icon: '🦉', title: 'Coruja', desc: 'Leia 1 capítulo depois da meia-noite', check: (s) => s.nightReads > 0 },
+];
+
+// stats completas pra conquistas
+function achievementStats() {
+  const log = load(READING_LOG_KEY, []);
+  const byDay = {};
+  let nightReads = 0;
+  for (const e of log) {
+    const k = dayKey(e.d);
+    byDay[k] = (byDay[k] || 0) + 1;
+    const h = new Date(e.d).getHours();
+    if (h >= 0 && h < 4) nightReads++;
+  }
+  const days = new Set(Object.keys(byDay));
+  let streak = 0;
+  const cursor = new Date();
+  const today = dayKey(cursor.getTime());
+  if (!days.has(today)) cursor.setDate(cursor.getDate() - 1);
+  while (days.has(dayKey(cursor.getTime()))) { streak++; cursor.setDate(cursor.getDate() - 1); }
+  return {
+    total: log.length,
+    mangas: new Set(log.map((e) => e.m)).size,
+    streak,
+    favs: state.favs.length,
+    maxDay: Math.max(0, ...Object.values(byDay)),
+    nightReads,
+  };
+}
+
+// retorna conquistas desbloqueadas (persistidas)
+function unlockedAchievements() { return load('achievements', []); }
+
+// checa conquistas e notifica as novas
+function checkAchievements() {
+  const s = achievementStats();
+  const unlocked = new Set(unlockedAchievements());
+  const fresh = [];
+  for (const a of ACHIEVEMENTS) {
+    if (!unlocked.has(a.id) && a.check(s)) {
+      unlocked.add(a.id);
+      fresh.push(a);
+    }
+  }
+  if (!fresh.length) return;
+  store('achievements', [...unlocked]);
+  schedulePush();
+  // toast + notificação (a primeira com destaque)
+  fresh.forEach((a, i) => setTimeout(() => {
+    toast(`🏆 Conquista: ${a.title}!`, '🎉');
+  }, i * 900));
+  // avisa no Telegram (se vinculado) — payload via pushSync já inclui achievements
+  if (fresh.length && syncUser) pushSync();
+}
+
+// renderiza o grid de conquistas no perfil
+function renderAchievements() {
+  let wrap = $('#achvWrap');
+  const content = $('#view-profile .content');
+  if (!content) return;
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'achvWrap';
+    const anchor = $('#statsWrap') || $('#listsWrap');
+    content.insertBefore(wrap, anchor ? anchor.nextSibling : null);
+  }
+  const s = achievementStats();
+  const unlocked = new Set(unlockedAchievements());
+  const unlockedCount = ACHIEVEMENTS.filter((a) => unlocked.has(a.id)).length;
+  wrap.innerHTML = `
+    <div class="stats-head">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; color: var(--accent);"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>Conquistas</h3>
+      <span class="stats-streak">${unlockedCount}/${ACHIEVEMENTS.length}</span>
+    </div>
+    <div class="achv-grid">
+      ${ACHIEVEMENTS.map((a) => {
+        const has = unlocked.has(a.id);
+        const prog = progressOf(a, s);
+        return `
+        <div class="achv-item ${has ? 'unlocked' : ''}" title="${esc(a.desc)}">
+          <div class="achv-icon">${has ? a.icon : '🔒'}</div>
+          <div class="achv-name">${esc(a.title)}</div>
+          ${has ? '<div class="achv-check">✓</div>' : `<div class="achv-prog">${prog}</div>`}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// progresso textual pra conquista bloqueada (ex: "7/10")
+function progressOf(a, s) {
+  if (a.id.startsWith('cap')) return `${Math.min(s.total, 1000)}/${a.id.replace('cap', '')}`;
+  if (a.id.startsWith('streak')) return `${s.streak}/${a.id.replace('streak', '')}`;
+  if (a.id.startsWith('manga')) return `${s.mangas}/${a.id.replace('manga', '')}`;
+  if (a.id.startsWith('fav')) return `${s.favs}/${a.id.replace('fav', '')}`;
+  if (a.id === 'maratona') return `${s.maxDay}/20`;
+  if (a.id === 'madrugada') return s.nightReads > 0 ? '✓' : '0/1';
+  return '';
 }
 
 // dia local em formato YYYY-MM-DD
@@ -3021,6 +3137,7 @@ function renderProfile() {
   const pages = Object.values(load('readCount', {})).reduce((a, b) => a + b, 0);
   $('#statPages').textContent = pages;
   renderStatsSection();
+  renderAchievements();
   renderSpotlight();
   renderVisits();
   renderMyProfile();
@@ -3484,6 +3601,7 @@ async function pushSync() {
     settings: state.settings,
     filters: state.filters,
     lists: myLists(),
+    achievements: load('achievements', []),
     telegramChatId: load('tgChatId', ''),
   };
   try {

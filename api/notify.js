@@ -8,6 +8,16 @@ const { MongoClient } = require('./db.js');
 const MD = 'https://api.mangadex.org';
 const MD_UA = 'MangananaNotifier/1.0 (https://manganana.vercel.app)';
 
+// badges de conquista (espelho do app.js — mantido em sincronia manual)
+const ACH_BADGES = {
+  cap10: '📖 Primeiras páginas', cap50: '📚 Leitor dedicado', cap200: '🏛️ Biblioteca viva',
+  cap500: '🔥 Viciado oficial', cap1000: '👑 Lenda do Manganana',
+  streak3: '🌱 Criando hábito', streak7: '⚡ Semana completa', streak30: '🌋 Mês de fogo',
+  manga5: '🎯 Explorador', manga15: '🧭 Aventureiro', manga40: '🌐 Colecionador de mundos',
+  fav10: '💛 Primeiros favoritos', fav30: '💎 Gosto refinado',
+  maratona: '🏃 Maratonista', madrugada: '🦉 Coruja',
+};
+
 let mongoPromise = null;
 function getMongo() {
   if (!mongoPromise) {
@@ -125,6 +135,22 @@ async function handleWebhook(req, res) {
     reply = `Seu ID: <code>${chatId}</code>`;
   } else if (text.startsWith('/resumo')) {
     reply = '📊 O resumo mensal é enviado automaticamente no dia 1º de cada mês! 📖';
+  } else if (text.startsWith('/conquistas')) {
+    // mostra as conquistas do usuário (via chat_id → dados no Mongo)
+    try {
+      const client = await getMongo();
+      const usersCol = client.db('manganana').collection('users');
+      const users = await usersCol.find({ 'data.telegramChatId': String(chatId) }).toArray();
+      const achv = users[0]?.data?.achievements || [];
+      if (!users.length || !achv.length) {
+        reply = '🏆 Você ainda não desbloqueou conquistas no Manganana.\nLeia capítulos e favorite mangás para ganhar badges! 📖';
+      } else {
+        const total = 15;
+        reply = `🏆 <b>Suas conquistas:</b> ${achv.length}/${total}\n\n` + achv.map((id) => `✅ ${ACH_BADGES[id] || id}`).join('\n');
+      }
+    } catch (e) {
+      reply = 'Não consegui buscar suas conquistas. Tente de novo!';
+    }
   } else {
     reply = 'Use /start para ver seu ID.';
   }

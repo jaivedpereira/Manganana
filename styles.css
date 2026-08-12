@@ -856,6 +856,54 @@ body.light .manga-card .cover .tag, body.light .manga-row .rcover .rtag{backgrou
   border: 1px solid var(--line);
   border-radius: 16px;
 }
+/* ===== CONQUISTAS ===== */
+.achv-grid{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.achv-item{
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 6px;
+  text-align: center;
+  position: relative;
+  opacity: .55;
+  transition: .2s;
+}
+.achv-item.unlocked{
+  opacity: 1;
+  border-color: rgba(212,175,55,.5);
+  background: linear-gradient(160deg, rgba(212,175,55,.12), var(--bg2));
+}
+.achv-icon{ font-size: 22px; line-height: 1; }
+.achv-name{
+  font-size: 8.5px;
+  font-weight: 700;
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.3;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.achv-item.unlocked .achv-name{ color: var(--text); }
+.achv-check{
+  position: absolute;
+  top: 4px; right: 6px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+}
+.achv-prog{
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 3px;
+  font-weight: 700;
+}
+.achv-item.unlocked .achv-prog{ display: none; }
 .stats-head{
   display: flex;
   align-items: center;
