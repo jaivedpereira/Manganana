@@ -571,6 +571,12 @@ button:active svg{transform:scale(.9)}
 .search-box svg{width:18px;height:18px;color:var(--muted)}
 .search-box input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:14px}
 .search-box input::placeholder{color:var(--muted)}
+.search-go-btn{
+  background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;border-radius:8px;
+  display:grid;place-items:center;transition:.2s;flex:none;
+}
+.search-go-btn svg{width:16px;height:16px;color:var(--muted)}
+.search-go-btn:active{background:var(--accent-soft);color:var(--accent);transform:scale(.92)}
 
 /* ===== BOTTOM NAV ===== */
 .bottom-nav{position:absolute;bottom:calc(16px + var(--safe-bottom));left:16px;right:16px;height:66px;background:rgba(11, 16, 28, 0.9);border:1px solid rgba(255,255,255,0.08);border-radius:20px;display:flex;justify-content:space-around;align-items:center;backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);z-index:50;box-shadow:0 16px 36px rgba(0,0,0,0.5),0 4px 12px rgba(0,0,0,0.3);animation:navIn .4s cubic-bezier(.22,.8,.36,1) both}

@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260812a" />
+  <link rel="stylesheet" href="styles.css?v=20260812b" />
   <!-- Vercel Web Analytics (visitas/views no dashboard) -->
   <script defer src="/_vercel/insights/script.js"></script>
   <!-- Clerk Auth (login com Google) — Account Portal (login hospedado) -->
@@ -40,7 +40,7 @@
       }).catch(function () {});
     })();
   </script>
-  <script src="app.js?v=20260812a" defer></script>
+  <script src="app.js?v=20260812b" defer></script>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -168,6 +168,7 @@
         <div class="search-box">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input id="searchInput" placeholder="Buscar mangá…" autocomplete="off" />
+          <button class="search-go-btn" id="btnSearchGo" title="Buscar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></button>
           <button class="filter-btn" id="btnFilters" title="Filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg><span class="filter-dot" id="filterDot"></span></button>
         </div>
       </header>

@@ -184,6 +184,17 @@ const LANG_NAMES = {
   'zh-hk': 'Chinês (HK)', 'ru': 'Russo', 'de': 'Alemão', 'it': 'Italiano', 'ar': 'Árabe',
   'id': 'Indonésio', 'th': 'Tailandês', 'vi': 'Vietnamita', 'uk': 'Ucraniano', 'tr': 'Turco',
   'fa': 'Persa', 'pl': 'Polonês', 'hi': 'Hindi', 'ms': 'Malaio', 'fil': 'Filipino',
+  'ka': 'Georgiano', 'he': 'Hebraico', 'el': 'Grego', 'nl': 'Holandês', 'sv': 'Sueco',
+  'da': 'Dinamarquês', 'no': 'Norueguês', 'fi': 'Finlandês', 'cs': 'Tcheco', 'hu': 'Húngaro',
+  'ro': 'Romeno', 'bg': 'Búlgaro', 'sr': 'Sérvio', 'hr': 'Croata', 'sk': 'Eslovaco',
+  'sl': 'Esloveno', 'lt': 'Lituano', 'lv': 'Letão', 'et': 'Estoniano', 'bn': 'Bengali',
+  'ta': 'Tâmil', 'te': 'Telugu', 'ml': 'Malaiala', 'kn': 'Canarês', 'ur': 'Urdu',
+  'ne': 'Nepalês', 'sw': 'Suaíli', 'af': 'Africâner', 'sq': 'Albanês', 'az': 'Azerbaijano',
+  'be': 'Bielorrusso', 'ca': 'Catalão', 'cy': 'Galês', 'eu': 'Basco', 'gl': 'Galego',
+  'is': 'Islandês', 'mk': 'Macedônio', 'mn': 'Mongol', 'my': 'Birmanês', 'kk': 'Cazaque',
+  'km': 'Khmer', 'lo': 'Laosiano', 'uz': 'Uzbeque', 'si': 'Cingalês', 'am': 'Amárico',
+  'hy': 'Armênio', 'kaa': 'Caracalpaque', 'tl': 'Tagalo', 'jv': 'Javanês', 'su': 'Sundanês',
+  'ceb': 'Cebuano', 'haw': 'Havaiano', 'mi': 'Maori', 'sm': 'Samoano',
 };
 function langName(code) { return LANG_NAMES[code] || code; }
 
@@ -928,6 +939,17 @@ async function initExplore() {
     renderSearchHistory();
     loadExplore();
   }, 450));
+  // botão de busca explícito (mobile): dispara na hora
+  $('#btnSearchGo').addEventListener('click', () => {
+    const q = $('#searchInput').value.trim();
+    if (!q) { $('#searchInput').focus(); return; }
+    state.explore.query = q;
+    state.explore.offset = 0;
+    $('#exploreGrid').innerHTML = '';
+    saveSearch(q);
+    renderSearchHistory();
+    loadExplore();
+  });
   $('#loadMoreBtn').addEventListener('click', loadExplore);
 }
 
@@ -1189,7 +1211,7 @@ function renderDetail(m, premium, langs) {
       </div>
       ${desc ? `
         <p class="detail-desc ${desc.length > 280 ? 'clamped' : ''}" id="detailDesc">${esc(desc)}</p>
-        ${desc.length > 280 ? '<button class="detail-toggle" id="descToggle">Ver mais</button>' : ''}
+        ${desc.length > 280 ? '<button class="detail-toggle" id="descToggle">Ver mais ▾</button>' : ''}
       ` : ''}
       ${chars.length ? `
       <div class="char-head"><h2>Personagens</h2></div>
@@ -1226,7 +1248,7 @@ function renderDetail(m, premium, langs) {
   if (d) $('#descToggle')?.addEventListener('click', () => {
     d.classList.toggle('clamped');
     d.classList.toggle('expanded');
-    $('#descToggle').textContent = d.classList.contains('clamped') ? 'Ver mais' : 'Ver menos';
+    $('#descToggle').textContent = d.classList.contains('clamped') ? 'Ver mais ▾' : 'Ver menos ▴';
   });
 }
 
