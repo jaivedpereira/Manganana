@@ -65,8 +65,50 @@ async function sendTelegram(token, chatId, text) {
   return { ok: !!j.ok, ...j };
 }
 
+// ===== webhook do bot: responde /start com o ID do usuário =====
+async function handleWebhook(req, res) {
+  const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!tgToken) return res.status(200).json({ ok: false, error: 'bot não configurado' });
+
+  const body = req.body || {};
+  const msg = body.message || body.edited_message || {};
+  const chat = msg.chat || {};
+  const text = (msg.text || '').trim();
+  if (!text.startsWith('/')) return res.status(200).json({ ok: true });
+
+  const chatId = chat.id;
+  let reply = '';
+  if (text.startsWith('/start')) {
+    reply =
+      '👋 Olá! Sou o assistente de notificações do <b>Manganana</b> 📖\n\n' +
+      'Seu ID do Telegram é:\n\n' +
+      `<code>${chatId}</code>\n\n` +
+      '1️⃣ Copie esse número\n' +
+      '2️⃣ Cole no Manganana (Perfil → Notificações de capítulo)\n' +
+      '3️⃣ Pronto! 🔔 Você vai receber aviso quando sair capítulo novo dos mangás da sua lista.';
+  } else if (text.startsWith('/id')) {
+    reply = `Seu ID: <code>${chatId}</code>`;
+  } else {
+    reply = 'Use /start para ver seu ID.';
+  }
+  try {
+    await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: reply, parse_mode: 'HTML' }),
+    });
+  } catch (e) {
+    console.error('tg webhook reply err:', e.message);
+  }
+  return res.status(200).json({ ok: true });
+}
+
 module.exports = async function handler(req, res) {
-  // proteção: o cron do Vercel injeta Authorization: Bearer $CRON_SECRET automaticamente
+  // ===== WEBHOOK do bot do Telegram (POST /api/notify sem auth = webhook) =====
+  if (req.method === 'POST') {
+    return await handleWebhook(req, res);
+  }
+  // ===== CRON de notificação (GET /api/notify com header secreto) =====
   const auth = req.headers['authorization'] || '';
   const cronSecret = process.env.CRON_SECRET || process.env.NOTIFY_KEY;
   if (!cronSecret || auth !== 'Bearer ' + cronSecret) {
