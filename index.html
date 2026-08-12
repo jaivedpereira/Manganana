@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#070a12" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260812j" />
+  <link rel="stylesheet" href="styles.css?v=20260812l" />
   <!-- Vercel Web Analytics (visitas/views no dashboard) -->
   <script defer src="/_vercel/insights/script.js"></script>
   <!-- Clerk Auth (login com Google) — Account Portal (login hospedado) -->
@@ -40,7 +40,7 @@
       }).catch(function () {});
     })();
   </script>
-  <script src="app.js?v=20260812j" defer></script>
+  <script src="app.js?v=20260812l" defer></script>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -217,7 +217,13 @@
         <input type="file" id="bannerInput" accept="image/*" hidden />
       </div>
       <header class="topbar"><div class="brand small"><span>perfil</span></div></header>
+      <div class="profile-tabs" id="profileTabs">
+        <button class="p-tab active" data-ptab="resumo" onclick="switchProfileTab('resumo')">Resumo</button>
+        <button class="p-tab" data-ptab="listas" onclick="switchProfileTab('listas')">Listas</button>
+        <button class="p-tab" data-ptab="ajustes" onclick="switchProfileTab('ajustes')">Ajustes</button>
+      </div>
       <div class="content">
+      <div class="p-sec" id="pSecResumo">
         <div class="profile-hero">
           <div class="profile-head">
             <div class="avatar big" id="profileAvatar">J</div>
@@ -298,16 +304,22 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           <span id="visitCountText"></span>
         </div>
-        <div class="menu-list">
-          <button class="menu-item" id="btnClearHistory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Limpar histórico</button>
-        </div>
-        <div class="section-head" style="margin-top:22px">
+      </div><!-- fim pSecResumo -->
+      <div class="p-sec" id="pSecListas" hidden>
+        <div class="section-head" style="margin-top:4px">
           <h2>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
             <span>Downloads</span>
           </h2>
         </div>
         <div id="downloadsWrap"></div>
+      </div><!-- fim pSecListas -->
+      <div class="p-sec" id="pSecAjustes" hidden>
+        <div class="menu-list">
+          <button class="menu-item" id="btnClearHistory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Limpar histórico</button>
+        </div>
+      </div><!-- fim pSecAjustes -->
+      <div class="profile-reloc" id="profileReloc"><!-- JS move accountBox/notifyBox pra cá --></div>
       </div>
     </section>
 

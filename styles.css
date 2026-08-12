@@ -338,8 +338,8 @@ button:active svg{transform:scale(.9)}
 .reader-view.bg-sepia .reader-top{background:rgba(243,233,210,.92);color:#3d2f1f}
 .reader-view.bg-light{background:#f4f5fa}
 .reader-view.bg-light .reader-top{background:rgba(244,245,250,.92);color:#131829}
-.reader-body .page-img{width:var(--page-w, 100%);transition:transform .2s;transform-origin:center top;filter:var(--page-filter, none);image-rendering:auto}
-.reader-body .page-img.zoomed{transform:scale(1.8);z-index:4;position:relative;cursor:zoom-out;filter:var(--page-filter, none) !important}
+.reader-body .page-img{width:var(--page-w, 100%);transition:transform .2s;transform-origin:center top;filter:var(--page-filter, none);image-rendering:auto;touch-action:pan-y}
+.reader-body .page-img.zoomed{transform:scale(1.8);z-index:4;position:relative;cursor:zoom-out;filter:var(--page-filter, none) !important;touch-action:auto}
 .tap-zone{position:fixed;top:0;bottom:0;width:28%;z-index:6;cursor:pointer}
 .tap-zone.left{left:0}
 .tap-zone.right{right:0}
@@ -849,6 +849,35 @@ body.light .manga-card .cover .tag, body.light .manga-row .rcover .rtag{backgrou
 }
 
 /* ===== ESTATÍSTICAS DE LEITURA ===== */
+/* ===== abas do perfil ===== */
+.profile-tabs{
+  display:flex;
+  gap:8px;
+  padding:10px 16px 0;
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:var(--bg);
+}
+.p-tab{
+  flex:1;
+  background:var(--panel);
+  border:1.5px solid var(--line);
+  color:var(--muted);
+  font-size:13px;
+  font-weight:700;
+  padding:10px 0;
+  border-radius:12px;
+  transition:all .2s;
+}
+.p-tab.active{
+  background:var(--accent);
+  color:#141300;
+  border-color:var(--accent);
+}
+.p-sec{animation:fadeUp .25s ease}
+.p-sec[hidden]{display:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .stats-wrap{
   margin: 14px 0;
   padding: 14px 16px;

@@ -1135,7 +1135,50 @@ function showView(viewId) {
   if (viewId) $('#' + viewId).classList.add('active');
 }
 
-async function openDetail(id) {
+/* ===== navegação com pilha (botão voltar do Android) ===== */
+let navStack = [];   // [{view, tab?, mangaId?, chapterId?, page?}]
+
+// empilha uma navegação (chama pushState pra criar entrada no histórico)
+function navPush(entry) {
+  navStack.push(entry);
+  try { history.pushState({ nav: true }, ''); } catch {}
+}
+
+// navega pra uma view empilhando
+function navGo(view, entry = {}) {
+  navPush({ view, ...entry });
+}
+
+// botão voltar: desempilha e volta (ou sai do app na raiz)
+function navBack() {
+  if (navStack.length > 1) {
+    navStack.pop();               // remove a atual
+    const prev = navStack[navStack.length - 1];
+    restoreNav(prev);
+    return true;
+  }
+  return false; // pilha vazia → deixa o browser sair
+}
+
+// restaura uma entrada da pilha (navega SEM re-empilhar)
+function restoreNav(entry) {
+  const v = entry.view || 'home';
+  if (v === 'home') { switchTab('home', false, true); }
+  else if (v === 'explore') { switchTab('explore', false, true); }
+  else if (v === 'library') { switchTab('library', false, true); }
+  else if (v === 'profile') { switchTab('profile', false, true); }
+  else if (v === 'detail' && entry.mangaId) { openDetail(entry.mangaId, true); }
+  else if (v === 'reader' && entry.chapterId) { openChapter(entry.chapterId, entry.page || 0, true); }
+  else { switchTab('home', false, true); }
+}
+
+// volta com o botão do header (sempre desempilha)
+function navBackBtn() {
+  if (!navBack()) { switchTab('home', false); }
+}
+
+async function openDetail(id, silent = false) {
+  if (!silent) navPush({ view: 'detail', mangaId: id });
   showView('view-detail');
   clearNewFlag(id);
   document.title = 'Manganana';
@@ -1465,7 +1508,8 @@ async function switchProvider(name) {
 }
 
 /* ---------- leitor ---------- */
-async function openChapter(chapterId, startPage = 0) {
+async function openChapter(chapterId, startPage = 0, silent = false) {
+  if (!silent) navPush({ view: 'reader', chapterId, page: startPage });
   showView('view-reader');
   $('#bottomNav').classList.add('hidden');
   const body = $('#readerBody');
@@ -1666,8 +1710,10 @@ function prevChapterNav() {
   else toast('Último capítulo');
 }
 function closeReader() {
+  // botão voltar do leitor: volta pro detalhe (desempilha sem re-push)
+  navStack = navStack.filter((e) => e.view !== 'reader');
   if (state.detail) { showView('view-detail'); renderDetail(state.detail); }
-  else switchTab('home');
+  else switchTab('home', false);
   $('#bottomNav').classList.remove('hidden');
 }
 
@@ -1976,6 +2022,8 @@ function initReaderZoom() {
   if (!body) return;
   if (body.dataset.zoomInit) return; // idempotente
   body.dataset.zoomInit = '1';
+  // impede zoom acidental do browser (pinça/double-tap) no leitor
+  body.addEventListener('gesturestart', (e) => e.preventDefault());
   body.addEventListener('dblclick', (e) => {
     const img = e.target.closest('.page-img');
     if (!img) return;
@@ -2157,7 +2205,7 @@ function clearFilters() {
 }
 
 /* ---------- navegação ---------- */
-function switchTab(tab, keepScroll = true) {
+function switchTab(tab, keepScroll = true, silent = false) {
   state.tab = tab;
   showView(tab ? 'view-' + tab : null);
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
@@ -2167,6 +2215,11 @@ function switchTab(tab, keepScroll = true) {
   if (tab === 'home') renderContinue();
   if (tab === 'library') renderLibrary();
   if (tab === 'profile') { renderProfile(); renderDownloads(); }
+  // empilha a navegação (exceto quando restaurando via popstate)
+  if (tab && !silent) {
+    const last = navStack[navStack.length - 1];
+    if (!last || last.view !== tab) navPush({ view: tab });
+  }
 }
 
 // ===== estatísticas de leitura =====
@@ -3131,7 +3184,42 @@ async function shareMangaCard() {
   }, 'image/png');
 }
 
+/* ===== perfil organizado em abas ===== */
+// move accountBox/notifyBox/listsWrap pros containers certos (1x)
+function organizeProfileSections() {
+  const reloc = $('#profileReloc');
+  if (!reloc || reloc.dataset.done) return;
+  reloc.dataset.done = '1';
+  const ajustes = $('#pSecAjustes');
+  if (ajustes) {
+    const account = $('#accountBox');
+    const notify = $('#notifyBox');
+    if (account) ajustes.insertBefore(account, ajustes.firstChild);
+    if (notify) ajustes.insertBefore(notify, ajustes.firstChild);
+  }
+  const listas = $('#pSecListas');
+  if (listas) {
+    const lists = $('#listsWrap');
+    const dl = $('#downloadsWrap');
+    if (lists) listas.insertBefore(lists, listas.firstChild);
+    if (dl && dl.parentElement !== listas) listas.appendChild(dl);
+  }
+  reloc.remove();
+}
+
+// troca a aba ativa do perfil
+function switchProfileTab(tab) {
+  $$('.p-tab').forEach((b) => b.classList.toggle('active', b.dataset.ptab === tab));
+  const show = (id) => { const el = $(id); if (el) el.hidden = (id !== 'pSec' + tab[0].toUpperCase() + tab.slice(1)); };
+  show('pSecResumo');
+  show('pSecListas');
+  show('pSecAjustes');
+  if (tab === 'listas') { renderListsSection(); renderDownloads(); }
+  if (tab === 'resumo') { renderStatsSection(); renderAchievements(); renderSpotlight(); }
+}
+
 function renderProfile() {
+  organizeProfileSections();
   $('#statFavs').textContent = state.favs.length;
   $('#statRead').textContent = Object.keys(load('readCount', {})).length;
   const pages = Object.values(load('readCount', {})).reduce((a, b) => a + b, 0);
@@ -3709,6 +3797,17 @@ function mergeData(cloud) {
     store('lists', out);
   }
 
+  // conquistas: união (nuvem desbloqueia, local nunca "tira" uma conquista)
+  if (Array.isArray(cloud.achievements) && cloud.achievements.length) {
+    const merged = [...new Set([...(load('achievements', []) || []), ...cloud.achievements])];
+    store('achievements', merged);
+  }
+
+  // telegramChatId: nuvem vence (é o mesmo em todos os aparelhos)
+  if (cloud.telegramChatId) {
+    store('tgChatId', cloud.telegramChatId);
+  }
+
   renderHome();
   renderLibrary();
   renderProfile();
@@ -3783,7 +3882,7 @@ function bindGlobal() {
     if (e.target.files && e.target.files[0]) changeProfilePhoto(e.target.files[0]);
     e.target.value = '';
   });
-  $('#btnDetailBack').addEventListener('click', () => switchTab('home'));
+  $('#btnDetailBack').addEventListener('click', () => navBackBtn());
   $('#btnDetailFav').addEventListener('click', toggleFav);
   $('#btnDetailShare').addEventListener('click', shareManga);
   $('#closeShareManga').addEventListener('click', closeSheets);
@@ -3796,9 +3895,7 @@ function bindGlobal() {
   });
   $('#seeAllMoreBtn').addEventListener('click', () => loadSeeAll(false));
   $('#btnReaderBack').addEventListener('click', () => {
-    if (state.detail) { showView('view-detail'); renderDetail(state.detail); }
-    else switchTab('home');
-    $('#bottomNav').classList.remove('hidden');
+    navBackBtn();
   });
   $('#btnSettings').addEventListener('click', () => openSheet('#settingsSheet'));
   $('#closeSettings').addEventListener('click', closeSheets);
@@ -3926,18 +4023,20 @@ function bindGlobal() {
     if (e.key === 'ArrowLeft') prevPage();
   });
 
-  // botão voltar do Android
+  // botão voltar do Android: desempilha e volta (pilha com pushState)
   window.addEventListener('popstate', () => {
-    const rd = $('#view-reader').classList.contains('active');
-    const dt = $('#view-detail').classList.contains('active');
-    if (rd) {
-      if (state.detail) { showView('view-detail'); renderDetail(state.detail); }
-      else switchTab('home');
+    if (navStack.length > 1) {
+      navStack.pop();
+      const prev = navStack[navStack.length - 1];
+      restoreNav(prev);
       $('#bottomNav').classList.remove('hidden');
+    } else {
+      // raiz: sai do app normalmente
     }
-    else if (dt) { switchTab('home'); }
   });
-  history.replaceState({}, '');
+  // estado inicial da pilha
+  navStack = [{ view: 'home' }];
+  history.replaceState({ nav: true }, '');
 }
 
 /* ---------- PWA: registro + instalação ---------- */
