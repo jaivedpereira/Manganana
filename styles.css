@@ -189,6 +189,7 @@ button:active svg{transform:scale(.9)}
 .manga-card .cover .tag.novo{background:#ef4444;color:#ffffff;border-color:rgba(255,255,255,0.15);animation:pulse 2s infinite}
 .manga-card h3{font-size:12px;margin-top:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);transition:color 0.2s ease}
 .manga-card .sub{font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-reason{font-size:9.5px;color:var(--accent);margin-top:4px;line-height:1.4;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
 /* ===== LIST CARD (resultado de busca) ===== */
 .manga-row{display:flex;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px;cursor:pointer;transition:all 0.2s cubic-bezier(0.25, 1, 0.5, 1);align-items:center}

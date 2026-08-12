@@ -422,6 +422,10 @@ function cardHTML(m, faved) {
   const cover = mangaCover(m);
   const year = mangaYear(m);
   const sub = [year].filter(Boolean).join(' · ') || mangaTags(m)[0] || '';
+  // justificativa da recomendação (só quando o algoritmo define m._recReason)
+  const reason = m._recReason
+    ? `<div class="rec-reason">🎯 Porque você gosta de <b>${esc(m._recReason)}</b></div>`
+    : '';
   return `
   <article class="manga-card" data-id="${m.id}" onclick="openDetail('${m.id}')">
     <div class="cover">
@@ -430,6 +434,7 @@ function cardHTML(m, faved) {
     </div>
     <h3>${esc(title)}</h3>
     <div class="sub">${esc(sub)}</div>
+    ${reason}
   </article>`;
 }
 
@@ -461,38 +466,79 @@ function rowHTML(m, faved) {
 
 // recomendações: descobre os gêneros favoritos do usuário e busca mangás parecidos
 async function recommendFor() {
-  // coleta ids favoritos + lidos
+  // ===== 1. perfil de tags ponderado (estilo YouTube) =====
+  // favorito pesa 2x, lido 1x, mais recente ganha bônus
   const favIds = state.favs.map((f) => f.id);
-  const histIds = state.history.map((h) => h.id).slice(0, 20);
+  const histIds = state.history.map((h) => h.id).slice(0, 30);
   const ids = [...new Set([...favIds, ...histIds])];
   if (!ids.length) return [];
 
-  // busca os gêneros desses mangás (em lotes de 5)
-  const genreCount = {};
+  const tagWeight = {};      // nome da tag → peso acumulado
+  const tagCount = {};       // quantas obras contribuíram (pra normalizar)
   let got = 0;
-  for (let i = 0; i < ids.length && got < 10; i += 5) {
+  for (let i = 0; i < ids.length && got < 15; i += 5) {
     const batch = ids.slice(i, i + 5);
     const results = await Promise.allSettled(batch.map((id) => getManga(id)));
     results.forEach((r) => {
       if (r.status !== 'fulfilled' || !r.value) return;
       got++;
+      const isFav = favIds.includes(r.value.id);
+      const weight = isFav ? 2 : 1;
       (r.value.attributes.tags || [])
         .filter((t) => t.attributes.group === 'genre')
-        .forEach((t) => { const n = t.attributes.name.en; genreCount[n] = (genreCount[n] || 0) + 1; });
+        .forEach((t) => {
+          const n = t.attributes.name.en;
+          tagWeight[n] = (tagWeight[n] || 0) + weight;
+          tagCount[n] = (tagCount[n] || 0) + 1;
+        });
     });
   }
+  // normaliza: peso médio por obra (evita que 10 obras de um gênero dominem demais)
+  const profile = {};
+  for (const [tag, w] of Object.entries(tagWeight)) {
+    profile[tag] = w / Math.sqrt(tagCount[tag] || 1);
+  }
+  const topTags = Object.entries(profile).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n]) => n);
+  if (!topTags.length) return [];
 
-  // top 2 gêneros
-  const topGenres = Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([n]) => n);
-  if (!topGenres.length) return [];
-
-  // busca mangás desses gêneros (via state.genres já carregado)
-  const g = state.genres.find((x) => x.name.toLowerCase() === topGenres[0].toLowerCase());
-  if (!g) return [];
-  const found = await searchManga({ limit: 14, genre: g.id });
-  // exclui os que o usuário já conhece
+  // ===== 2. busca candidatos dos gêneros top (com fallback por gênero) =====
   const known = new Set(ids);
-  return found.filter((m) => !known.has(m.id)).slice(0, 10);
+  const candidates = [];
+  for (const tag of topTags.slice(0, 3)) {
+    const g = state.genres.find((x) => x.name.toLowerCase() === tag.toLowerCase());
+    if (!g) continue;
+    try {
+      const found = await searchManga({ limit: 12, genre: g.id });
+      found.filter((m) => !known.has(m.id)).forEach((m) => {
+        if (!candidates.some((c) => c.id === m.id)) candidates.push(m);
+      });
+    } catch { /* pula gênero com falha */ }
+  }
+
+  // ===== 3. score de similaridade (cosseno aproximado) =====
+  const scored = candidates.map((m) => {
+    const tags = (m.attributes.tags || [])
+      .filter((t) => t.attributes.group === 'genre')
+      .map((t) => t.attributes.name.en);
+    // soma dos pesos dos tags do candidato que batem com o perfil
+    let score = 0;
+    const matched = [];
+    for (const t of tags) {
+      if (profile[t]) { score += profile[t]; matched.push(t); }
+    }
+    // bônus de popularidade (o YouTube também mistura "o que todo mundo vê")
+    score += Math.min(2, Math.log10(1 + (m.attributes.followedCount || 0)) / 3);
+    return { m, score, matched: matched.slice(0, 3) };
+  });
+  scored.sort((a, b) => b.score - a.score);
+
+  // ===== 4. justificativa + retorno =====
+  // guarda a razão num dataset pro card poder mostrar "por quê"
+  const result = scored.slice(0, 10).map(({ m, matched }) => {
+    m._recReason = matched.length ? matched.join(' + ') : topTags[0];
+    return m;
+  });
+  return result;
 }
 
 // recomendações na página de detalhes — mesmo gênero do mangá atual
