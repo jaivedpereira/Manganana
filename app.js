@@ -4258,9 +4258,21 @@ function bindRipple() {
     // deep link: ?manga=ID abre direto o mangá (links compartilhados)
     const q = new URLSearchParams(location.search);
     const mangaId = q.get('manga');
+    const chapterId = q.get('chapter');
     if (mangaId) {
       try {
         await openDetail(mangaId);
+        if (chapterId) {
+          // espera a lista de capítulos carregar e abre o capítulo direto
+          const waitFor = setInterval(() => {
+            const exists = (state.chapters || []).some(c => c.id === chapterId);
+            if (exists) {
+              clearInterval(waitFor);
+              openChapter(chapterId);
+            }
+          }, 300);
+          setTimeout(() => clearInterval(waitFor), 15000);
+        }
         history.replaceState({}, '', location.pathname);
       } catch (err) {
         console.warn('Falha ao processar deep link:', err);

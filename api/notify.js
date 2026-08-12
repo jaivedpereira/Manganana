@@ -42,20 +42,35 @@ async function latestChapter(mangaId) {
 }
 
 // monta a mensagem bonita do Telegram (com suporte a HTML do Telegram)
-function tgMessage(mangaTitle, ch) {
+function tgMessage(mangaTitle, ch, mangaId) {
   const num = ch.chapter === '0' ? '0 (Prólogo)' : ch.chapter;
   const lines = [
     `📖 <b>${mangaTitle}</b>`,
     ``,
     `🔥 <b>Capítulo ${num}</b>${ch.title ? ' — ' + ch.title : ''}`,
     ch.group ? `📦 ${ch.group}` : '',
-    `🔗 <a href="https://manganana.vercel.app/?manga=${encodeURIComponent(mangaTitle)}">Ler no Manganana</a>`,
+    `🔗 <a href="https://manganana.vercel.app/?manga=${mangaId}&chapter=${ch.id}">Ler capítulo no Manganana</a>`,
   ].filter(Boolean);
   return lines.join('\n');
 }
 
-async function sendTelegram(token, chatId, text) {
+async function sendTelegram(token, chatId, text, photoUrl) {
   if (!token || !chatId) return { ok: false, reason: 'sem token/chat' };
+  if (photoUrl) {
+    // envia com foto (capa do mangá) + legenda
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        photo: photoUrl,
+        caption: text,
+        parse_mode: 'HTML',
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    return { ok: !!j.ok, ...j };
+  }
   const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -148,13 +163,18 @@ module.exports = async function handler(req, res) {
       const ids = new Set([...(lists.lendo || []), ...(lists.vouLer || [])]);
       for (const mid of ids) {
         if (!seenMangas.has(mid)) {
-          // busca título do mangá
+          // busca título do mangá + capa (cover_art)
           try {
-            const m = await mdFetch(`${MD}/manga/${mid}`);
+            const m = await mdFetch(`${MD}/manga/${mid}?includes[]=cover_art`);
             const t = m?.data?.attributes?.title || {};
-            seenMangas.set(mid, t['pt-br'] || t['en'] || t['ja-ro'] || Object.values(t)[0] || 'Mangá');
+            const coverRel = (m?.data?.relationships || []).find(r => r.type === 'cover_art');
+            const coverFn = coverRel?.attributes?.fileName;
+            seenMangas.set(mid, {
+              title: t['pt-br'] || t['en'] || t['ja-ro'] || Object.values(t)[0] || 'Mangá',
+              cover: coverFn ? `https://uploads.mangadex.org/covers/${mid}/${coverFn}.512.jpg` : '',
+            });
           } catch {
-            seenMangas.set(mid, 'Mangá');
+            seenMangas.set(mid, { title: 'Mangá', cover: '' });
           }
           checked++;
         }
@@ -165,15 +185,15 @@ module.exports = async function handler(req, res) {
           const state = await notifyState.findOne({ mangaId: mid });
           if (state && state.lastChapter === ch.id) continue; // já avisamos
 
-          const title = seenMangas.get(mid);
-          const msg = tgMessage(title, ch);
-          const r = await sendTelegram(tgToken, chatId, msg);
+          const info = seenMangas.get(mid) || { title: 'Mangá', cover: '' };
+          const msg = tgMessage(info.title, ch, mid);
+          const r = await sendTelegram(tgToken, chatId, msg, info.cover);
           if (r.ok) {
             sent++;
             // registra que avisamos esse capítulo
             await notifyState.updateOne(
               { mangaId: mid },
-              { $set: { lastChapter: ch.id, lastAt: new Date().toISOString(), title } },
+              { $set: { lastChapter: ch.id, lastAt: new Date().toISOString(), title: info.title } },
               { upsert: true }
             );
           } else {
