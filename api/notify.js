@@ -70,7 +70,12 @@ async function handleWebhook(req, res) {
   const tgToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!tgToken) return res.status(200).json({ ok: false, error: 'bot não configurado' });
 
-  const body = req.body || {};
+  const raw = req.body || {};
+  let body = raw;
+  // Vercel pode entregar o body como string JSON — normaliza
+  if (typeof raw === 'string') {
+    try { body = JSON.parse(raw); } catch { body = {}; }
+  }
   const msg = body.message || body.edited_message || {};
   const chat = msg.chat || {};
   const text = (msg.text || '').trim();
