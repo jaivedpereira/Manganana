@@ -682,12 +682,12 @@ function initHeroSwipe() {
 async function fetchHeroList() {
   const curatedIds = [
     'a77742b1-befd-49a4-bff5-1ad4e6b0ef7b', // Chainsaw Man
-    '7c21cc6b-df69-4880-a185-53a3f7a2f81d', // Solo Leveling
+    '32d76d19-8a05-4db0-9fc2-e0b0648fe9d0', // Solo Leveling
     '4141c5dc-c525-4df5-afd7-cc7d192a832f', // Jujutsu Kaisen
-    '52178220-4e56-4b82-9f2b-236b2841a457', // One Piece
-    'bb2b1523-e383-4a00-85f0-622879717544', // Frieren
-    '5d2d559e-e024-49e0-911e-848e0281b3cc', // Oshi no Ko
-    '35d513a0-438e-491b-b729-450efb946851'  // Demon Slayer
+    'a1c7c817-4e59-43b7-9365-09675a149a6f', // One Piece
+    'b0b721ff-c388-4486-aa0f-c2b0bb321512', // Frieren
+    '296cbc31-af1a-4b5b-a34b-fee2b4cad542', // Oshi no Ko
+    '0acb51ef-3d71-4993-81a0-8cbcfb88fa9e'  // Demon Slayer
   ];
 
   try {
