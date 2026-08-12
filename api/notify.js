@@ -54,6 +54,21 @@ function tgMessage(mangaTitle, ch, mangaId) {
   return lines.join('\n');
 }
 
+// envia foto (buffer PNG) com legenda — usa FormData nativo do Node 18+
+async function sendTelegramPhoto(token, chatId, photoBuffer, caption) {
+  const form = new FormData();
+  form.append('chat_id', String(chatId));
+  form.append('photo', new Blob([photoBuffer], { type: 'image/png' }), 'monthly_card.png');
+  form.append('caption', caption);
+  form.append('parse_mode', 'HTML');
+  const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+    method: 'POST',
+    body: form,
+  });
+  const j = await r.json().catch(() => ({}));
+  return { ok: !!j.ok, ...j };
+}
+
 async function sendTelegram(token, chatId, text, photoUrl) {
   if (!token || !chatId) return { ok: false, reason: 'sem token/chat' };
   if (photoUrl) {
@@ -126,6 +141,70 @@ async function handleWebhook(req, res) {
 }
 
 // ===== resumo mensal: "Esse mês no Manganana" =====
+function escapeXml(s) {
+  return String(s).replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
+}
+
+// gera o card visual (SVG → PNG) com as stats do mês
+async function buildMonthlyCard(data) {
+  const sharp = require('sharp');
+  const W = 1080, H = 1350;
+  const NAVY = '#0b1120', NAVY2 = '#111a30', GOLD = '#ffd60a', TEXT = '#e8edf7', MUTED = '#8a94ad';
+  const BAR = '#ffd60a';
+  const maxCh = Math.max(...data.top.map(t => t.chapters), 1);
+  const barH = 64, barGap = 26;
+  const chartTop = 640;
+  const barStartX = 430;
+
+  let bars = '';
+  data.top.forEach((t, i) => {
+    const w = Math.max(60, (t.chapters / maxCh) * 560);
+    const y = chartTop + i * (barH + barGap);
+    bars += `
+    <text x="30" y="${y + 40}" font-family="Segoe UI, sans-serif" font-size="30" font-weight="bold" fill="${TEXT}">${i === 0 ? '🏆' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•'} ${escapeXml(t.title)}</text>
+    <rect x="${barStartX}" y="${y}" width="${w}" height="${barH}" rx="12" fill="${i === 0 ? BAR : '#f0a500'}" opacity="0.92"/>
+    <text x="${barStartX + w + 20}" y="${y + 45}" font-family="Segoe UI, sans-serif" font-size="32" font-weight="bold" fill="${GOLD}">${t.chapters}</text>`;
+  });
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${NAVY}"/><stop offset="100%" stop-color="#0a1226"/>
+    </linearGradient>
+    <linearGradient id="goldline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="${GOLD}"/><stop offset="100%" stop-color="#ff8c00"/>
+    </linearGradient>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+  <circle cx="900" cy="150" r="380" fill="#ffd60a" opacity="0.05"/>
+  <circle cx="150" cy="1150" r="320" fill="#ff8c00" opacity="0.05"/>
+  <text x="540" y="150" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="52" font-weight="800" fill="${TEXT}">📊 SEU MÊS NO</text>
+  <text x="540" y="225" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">MANGANANA</text>
+  <rect x="340" y="265" width="400" height="6" rx="3" fill="url(#goldline)"/>
+  <text x="540" y="320" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="32" fill="${MUTED}">${escapeXml(data.month)}</text>
+  <g>
+    <rect x="60" y="380" width="300" height="180" rx="20" fill="${NAVY2}" stroke="#1e2a4a" stroke-width="2"/>
+    <text x="210" y="450" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">${data.chapters}</text>
+    <text x="210" y="500" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="26" fill="${MUTED}">capítulos lidos</text>
+    <rect x="390" y="380" width="300" height="180" rx="20" fill="${NAVY2}" stroke="#1e2a4a" stroke-width="2"/>
+    <text x="540" y="450" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">${data.mangas}</text>
+    <text x="540" y="500" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="26" fill="${MUTED}">mangás diferentes</text>
+    <rect x="720" y="380" width="300" height="180" rx="20" fill="${NAVY2}" stroke="#1e2a4a" stroke-width="2"/>
+    <text x="870" y="450" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="64" font-weight="900" fill="${GOLD}">${data.days}</text>
+    <text x="870" y="500" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="26" fill="${MUTED}">dias ativos</text>
+  </g>
+  <text x="30" y="600" font-family="Segoe UI, sans-serif" font-size="34" font-weight="800" fill="${TEXT}">MAIS LIDOS</text>
+  <rect x="30" y="618" width="70" height="5" rx="2.5" fill="${GOLD}"/>
+  ${bars}
+  <rect x="0" y="${H - 110}" width="${W}" height="110" fill="${NAVY2}"/>
+  <text x="540" y="${H - 55}" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="28" font-weight="700" fill="${TEXT}">📖 manganana.vercel.app</text>
+  <text x="540" y="${H - 20}" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" fill="${MUTED}">Histórias que viram mundos</text>
+</svg>`;
+  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  return png;
+}
+
+// monta os dados do resumo a partir do histórico
 async function buildMonthlySummary(history) {
   const now = new Date();
   // mês passado (ex: se hoje é 12/08, resumo de julho? não — mês ATUAL até agora, mas no dia 1º, mês passado)
@@ -147,23 +226,18 @@ async function buildMonthlySummary(history) {
   const totalMangas = mangaList.length;
 
   const monthName = new Date(firstOfThisMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  const lines = [
-    `📊 <b>Seu mês no Manganana</b>`,
-    `<i>${monthName}</i>`,
-    ``,
-    `📖 <b>${totalChapters}</b> capítulo${totalChapters > 1 ? 's' : ''} lido${totalChapters > 1 ? 's' : ''}`,
-    `📚 <b>${totalMangas}</b> mangá${totalMangas > 1 ? 's' : ''} diferente${totalMangas > 1 ? 's' : ''}`,
-    `🗓️ <b>${days.size}</b> dia${days.size > 1 ? 's' : ''} ativo${days.size > 1 ? 's' : ''}`,
-    ``,
-    `🏆 <b>Mais lido:</b> ${top[1].title} (${top[1].chapters} cap.)`,
-  ];
-  if (mangaList[1]) lines.push(`🥈 ${mangaList[1][1].title} (${mangaList[1][1].chapters} cap.)`);
-  if (mangaList[2]) lines.push(`🥉 ${mangaList[2][1].title} (${mangaList[2][1].chapters} cap.)`);
-  lines.push(``, `🔗 <a href="https://manganana.vercel.app">Continuar lendo →</a>`);
-  return lines.join('\n');
+  // top 4 mangás (limita pra caber no card)
+  const top4 = mangaList.slice(0, 4).map(([id, m]) => ({ id, title: m.title, chapters: m.chapters }));
+  return {
+    month: monthName,
+    chapters: totalChapters,
+    mangas: totalMangas,
+    days: days.size,
+    top: top4,
+  };
 }
 
-// ===== resumo mensal: envia pra todo mundo que vinculou o bot =====
+// ===== resumo mensal: envia o card visual pra todo mundo que vinculou o bot =====
 async function monthlySummary(res) {
   const tgToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!tgToken) return res.json({ ok: false, error: 'bot não configurado' });
@@ -179,7 +253,9 @@ async function monthlySummary(res) {
       if (!chatId) { skipped++; continue; }
       const summary = await buildMonthlySummary(data.history || []);
       if (!summary) { skipped++; continue; }
-      const r = await sendTelegram(tgToken, chatId, summary);
+      const png = await buildMonthlyCard(summary);
+      const caption = `📊 <b>Seu mês no Manganana</b>\n<i>${summary.month}</i>\n\n🔗 <a href="https://manganana.vercel.app">Continuar lendo →</a>`;
+      const r = await sendTelegramPhoto(tgToken, chatId, png, caption);
       if (r.ok) sent++;
     }
     return res.json({ ok: true, mode: 'monthly', sent, skipped, ts: new Date().toISOString() });

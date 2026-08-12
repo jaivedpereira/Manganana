@@ -12,6 +12,7 @@
   "dependencies": {
     "@clerk/backend": "^1.21.0",
     "express": "^5.2.1",
-    "mongodb": "^6.8.0"
+    "mongodb": "^6.8.0",
+    "sharp": "^0.35.3"
   }
 }
