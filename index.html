@@ -256,6 +256,21 @@
             <button class="logout-btn" id="btnLogout">Sair da conta</button>
           </div>
         </div>
+        <div class="notify-box" id="notifyBox">
+          <div class="notify-head">
+            <span>🔔 Notificações de capítulo</span>
+            <span class="notify-status" id="notifyStatus">off</span>
+          </div>
+          <p class="muted notify-hint">Receba aviso no Telegram quando sair capítulo novo dos mangás da sua lista (Lendo / Vou ler).</p>
+          <div class="notify-form" id="notifyForm">
+            <input id="tgChatInput" class="tg-input" placeholder="Seu ID do Telegram (ex: 123456789)" inputmode="numeric" autocomplete="off" />
+            <button class="tg-save-btn" id="btnTgSave">Salvar</button>
+          </div>
+          <div class="notify-help" id="notifyHelp">
+            <p class="muted">1. Abra o bot <b>@MangananaNotifyBot</b> no Telegram e toque em <b>Iniciar</b></p>
+            <p class="muted">2. O bot te mostra seu ID — copie e cole aqui 👆</p>
+          </div>
+        </div>
         <div class="spotlight" id="spotlightCard" onclick="spotlightClick()" style="display:none">
           <div class="spot-cover" id="spotlightCover"></div>
           <div class="spot-body">

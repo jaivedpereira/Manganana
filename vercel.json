@@ -4,6 +4,9 @@
   "outputDirectory": ".",
   "devCommand": "python -m http.server 4173",
   "cleanUrls": true,
+  "crons": [
+    { "path": "/api/notify", "schedule": "*/30 * * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

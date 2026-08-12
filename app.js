@@ -3007,6 +3007,33 @@ function renderMyProfile() {
   } else { bio.hidden = true; }
   renderBanner(myProfileData?.banner || pendingBanner || '');
   renderListsSection();
+  renderNotifyBox();
+}
+
+// ===== notificações de capítulo (Telegram) =====
+function renderNotifyBox() {
+  const box = $('#notifyBox');
+  if (!box) return;
+  const isLogged = !!syncUser;
+  box.style.display = isLogged ? '' : 'none';
+  if (!isLogged) return;
+  const tg = load('tgChatId', '');
+  const status = $('#notifyStatus');
+  const input = $('#tgChatInput');
+  status.textContent = tg ? 'ativo' : 'off';
+  status.classList.toggle('on', !!tg);
+  input.value = tg;
+}
+
+function saveTgChat() {
+  const input = $('#tgChatInput');
+  const v = input.value.trim();
+  if (!v) { toast('Digite seu ID do Telegram', '❌'); return; }
+  if (!/^\d{5,}$/.test(v)) { toast('ID inválido — só números', '❌'); return; }
+  store('tgChatId', v);
+  schedulePush();
+  renderNotifyBox();
+  toast('Notificações ativadas! 🔔', '✅');
 }
 
 // aplica o banner: GIF usa <img> (anima de verdade), imagem usa background
@@ -3393,6 +3420,7 @@ async function pushSync() {
     settings: state.settings,
     filters: state.filters,
     lists: myLists(),
+    telegramChatId: load('tgChatId', ''),
   };
   try {
     const token = await window.Clerk.session?.getToken();
@@ -3562,6 +3590,7 @@ function bindGlobal() {
   $('#btnGoogleLogin').addEventListener('click', googleLogin);
   $('#btnLogout').addEventListener('click', logout);
   $('#btnSyncNow').addEventListener('click', syncNow);
+  $('#btnTgSave').addEventListener('click', saveTgChat);
   $('#btnEditProfile').addEventListener('click', () => toggleEditProfile(true));
   $('#epBannerInput').addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) handleBannerUpload(e.target.files[0]);
