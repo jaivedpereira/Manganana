@@ -74,7 +74,7 @@ function load(key, def) { try { return JSON.parse(localStorage.getItem('mn_' + k
 /* ---------- estado ---------- */
 const state = {
   tab: 'home',
-  settings: load('settings', { mode: 'vertical', quality: 'full', rtl: false, dark: true, theme: 'dark', readerBg: 'auto', readerBright: 100, readerWidth: 100, webtoon: false, tapZones: false }),
+  settings: load('settings', { mode: 'vertical', quality: 'full', rtl: false, dark: true, theme: 'dark', readerBg: 'auto', readerBright: 100, readerWidth: 100, readerContrast: 100, readerSat: 100, readerSharp: 'soft', webtoon: false, tapZones: false }),
   favs: load('favs', []),           // [{id, title, cover}]
   history: load('history', []),     // [{id, title, cover, chapter, chapterId, page, ts}]
   readCount: load('readCount', {}), // {mangaId: n páginas lidas}
@@ -1911,6 +1911,17 @@ function applyReaderStyles() {
     const w = s.readerWidth;
     body.style.setProperty('--page-w', w + '%');
   }
+  // contraste + saturação + nitidez via CSS filter nas imagens
+  if (body) {
+    const c = s.readerContrast ?? 100;
+    const sat = s.readerSat ?? 100;
+    const sharp = s.readerSharp || 'soft';
+    let filter = `contrast(${c / 100}) saturate(${sat / 100})`;
+    if (sharp === 'soft') filter += ' blur(0.3px)';       // suaviza pixel art
+    else if (sharp === 'crisp') filter += ' contrast(1.05) saturate(1.05)'; // mais definido
+    // 'auto' e 'none' deixam o filter de cor apenas
+    body.style.setProperty('--page-filter', filter);
+  }
 }
 
 // zoom por pinça/double-tap numa página
@@ -2017,6 +2028,13 @@ function openReaderSettings() {
   const s = state.settings;
   $('#rsBright').value = s.readerBright;
   $('#rsBrightVal').textContent = s.readerBright + '%';
+  $('#rsContrast').value = s.readerContrast ?? 100;
+  $('#rsContrastVal').textContent = (s.readerContrast ?? 100) + '%';
+  $('#rsSat').value = s.readerSat ?? 100;
+  $('#rsSatVal').textContent = (s.readerSat ?? 100) + '%';
+  const sharpNames = { soft: 'Suave', auto: 'Auto', crisp: 'Nítido', none: 'Original' };
+  $('#rsSharpVal').textContent = sharpNames[s.readerSharp] || 'Suave';
+  $$('#rsSharpChips .rs-chip').forEach((c) => c.classList.toggle('active', c.dataset.sharp === (s.readerSharp || 'soft')));
   $('#rsWidth').value = s.readerWidth;
   $('#rsWidthVal').textContent = s.readerWidth + '%';
   $('#rsWebtoon').checked = !!s.webtoon;
@@ -3633,6 +3651,21 @@ function bindGlobal() {
     state.settings.readerBright = +e.target.value; store('settings', state.settings);
     $('#rsBrightVal').textContent = e.target.value + '%'; applyReaderStyles();
   });
+  $('#rsContrast').addEventListener('input', (e) => {
+    state.settings.readerContrast = +e.target.value; store('settings', state.settings);
+    $('#rsContrastVal').textContent = e.target.value + '%'; applyReaderStyles();
+  });
+  $('#rsSat').addEventListener('input', (e) => {
+    state.settings.readerSat = +e.target.value; store('settings', state.settings);
+    $('#rsSatVal').textContent = e.target.value + '%'; applyReaderStyles();
+  });
+  $$('#rsSharpChips .rs-chip').forEach((c) => c.addEventListener('click', () => {
+    state.settings.readerSharp = c.dataset.sharp; store('settings', state.settings);
+    const sharpNames = { soft: 'Suave', auto: 'Auto', crisp: 'Nítido', none: 'Original' };
+    $('#rsSharpVal').textContent = sharpNames[c.dataset.sharp];
+    $$('#rsSharpChips .rs-chip').forEach((x) => x.classList.toggle('active', x === c));
+    applyReaderStyles();
+  }));
   $('#rsWidth').addEventListener('input', (e) => {
     state.settings.readerWidth = +e.target.value; store('settings', state.settings);
     $('#rsWidthVal').textContent = e.target.value + '%'; applyReaderStyles();
