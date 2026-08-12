@@ -2313,8 +2313,11 @@ function renderAchievements() {
   if (!wrap) {
     wrap = document.createElement('div');
     wrap.id = 'achvWrap';
-    const anchor = $('#statsWrap') || $('#listsWrap');
-    content.insertBefore(wrap, anchor ? anchor.nextSibling : null);
+    // insere DENTRO da seção Resumo (após statsWrap)
+    const resumo = $('#pSecResumo');
+    const target = resumo || content;
+    const anchor = $('#statsWrap') || $('#visitCount') || $('#profileBio');
+    target.insertBefore(wrap, anchor ? anchor.nextSibling : null);
   }
   const s = achievementStats();
   const unlocked = new Set(unlockedAchievements());
@@ -2395,8 +2398,11 @@ function renderStatsSection() {
     wrap = document.createElement('div');
     wrap.id = 'statsWrap';
     wrap.className = 'stats-wrap';
+    // insere DENTRO da seção Resumo (para as abas funcionarem)
+    const resumo = $('#pSecResumo');
+    const target = resumo || content;
     const anchor = $('#listsWrap') || $('#visitCount') || $('#profileBio');
-    content.insertBefore(wrap, anchor ? anchor.nextSibling : null);
+    target.insertBefore(wrap, anchor ? anchor.nextSibling : null);
   }
   const max = Math.max(1, ...s.week.map((d) => d.n));
   const bars = s.week.map((d) => {
@@ -3185,24 +3191,21 @@ async function shareMangaCard() {
 }
 
 /* ===== perfil organizado em abas ===== */
-// move accountBox/notifyBox/listsWrap pros containers certos (1x)
+// move notificações pro Ajustes; login (accountBox) fica VISÍVEL no Resumo
 function organizeProfileSections() {
   const reloc = $('#profileReloc');
   if (!reloc || reloc.dataset.done) return;
   reloc.dataset.done = '1';
+  // notifyBox → Ajustes
   const ajustes = $('#pSecAjustes');
-  if (ajustes) {
-    const account = $('#accountBox');
-    const notify = $('#notifyBox');
-    if (account) ajustes.insertBefore(account, ajustes.firstChild);
-    if (notify) ajustes.insertBefore(notify, ajustes.firstChild);
-  }
-  const listas = $('#pSecListas');
-  if (listas) {
-    const lists = $('#listsWrap');
-    const dl = $('#downloadsWrap');
-    if (lists) listas.insertBefore(lists, listas.firstChild);
-    if (dl && dl.parentElement !== listas) listas.appendChild(dl);
+  const notify = $('#notifyBox');
+  if (ajustes && notify) ajustes.insertBefore(notify, ajustes.firstChild);
+  // accountBox volta pro início do Resumo (logo após o hero) — login acessível
+  const resumo = $('#pSecResumo');
+  const account = $('#accountBox');
+  if (resumo && account) {
+    const hero = resumo.querySelector('.profile-hero');
+    if (hero) resumo.insertBefore(account, hero.nextSibling);
   }
   reloc.remove();
 }
@@ -3330,10 +3333,12 @@ function renderListsSection() {
   if (!wrap) {
     const content = $('#view-profile .content');
     if (!content) return;
-    const anchor = $('#visitCount') || $('#profileBio');
+    // insere DENTRO da seção Listas (para as abas funcionarem)
+    const listas = $('#pSecListas');
+    const target = listas || content;
     wrap = document.createElement('div');
     wrap.id = 'listsWrap';
-    content.insertBefore(wrap, anchor ? anchor.nextSibling : null);
+    target.insertBefore(wrap, target.firstChild);
   }
   const lists = myLists();
   const any = Object.values(lists).some((l) => l.length);
