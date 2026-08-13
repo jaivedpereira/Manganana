@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260812n" />
+  <link rel="stylesheet" href="styles.css?v=20260812o" />
   <!-- Vercel Web Analytics (visitas/views no dashboard) -->
   <script defer src="/_vercel/insights/script.js"></script>
   <!-- Clerk Auth (login com Google) — Account Portal (login hospedado) -->
@@ -40,7 +40,7 @@
       }).catch(function () {});
     })();
   </script>
-  <script src="app.js?v=20260812n" defer></script>
+  <script src="app.js?v=20260812o" defer></script>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -185,8 +185,15 @@
       <header class="topbar"><div class="brand small"><span>biblioteca</span></div></header>
       <div class="content">
         <div class="seg" id="libSeg">
-          <button class="seg-btn active" data-lib="favs">Favoritos</button>
-          <button class="seg-btn" data-lib="history">Histórico</button>
+          <button class="seg-btn active" data-lib="favs">Favoritos <span class="lib-count" id="libCountFavs"></span></button>
+          <button class="seg-btn" data-lib="history">Histórico <span class="lib-count" id="libCountHist"></span></button>
+        </div>
+        <div class="lib-status" id="libStatus">
+          <button class="ls-chip active" data-ls="all">Todos</button>
+          <button class="ls-chip" data-ls="lendo">Lendo</button>
+          <button class="ls-chip" data-ls="vouLer">Vou ler</button>
+          <button class="ls-chip" data-ls="completo">Completo</button>
+          <button class="ls-chip" data-ls="dropei">Dropei</button>
         </div>
         <div class="lib-tools">
           <div class="search-box small">

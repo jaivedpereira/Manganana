@@ -1072,14 +1072,18 @@ function doSearchTerm(q) {
   loadExplore();
 }
 
-/* ---------- render: library ---------- */
 let libTab = 'favs';
 let libSort = 'recent';
 let libQuery = '';
+let libStatus = 'all';
+
 function renderLibrary() {
   const grid = $('#libraryGrid');
   const empty = $('#libraryEmpty');
   const emptyText = $('#libraryEmptyText');
+  // contadores nas abas
+  $('#libCountFavs').textContent = state.favs.length ? `(${state.favs.length})` : '';
+  $('#libCountHist').textContent = state.history.length ? `(${state.history.length})` : '';
   let items;
   if (libTab === 'favs') {
     items = state.favs;
@@ -1092,6 +1096,12 @@ function renderLibrary() {
   if (libQuery) {
     const q = libQuery.toLowerCase();
     items = items.filter((f) => (f.title || '').toLowerCase().includes(q));
+  }
+  // filtro por status (usa as listas do usuário)
+  if (libStatus !== 'all') {
+    const lists = myLists();
+    const statusIds = new Set((lists[libStatus] || []).map((x) => x.id));
+    items = items.filter((f) => statusIds.has(f.id));
   }
   // ordenação
   if (libTab === 'favs') {
@@ -1113,19 +1123,50 @@ function renderLibrary() {
   }
   const readCount = load('readCount', {});
   empty.hidden = items.length > 0;
-  grid.innerHTML = items.map((f) => {
+  // badge de status por mangá (das listas)
+  const lists = myLists();
+  const statusOf = {};
+  Object.entries(lists).forEach(([name, arr]) => (arr || []).forEach((x) => { if (!statusOf[x.id]) statusOf[x.id] = name; }));
+  const statusLabel = { lendo: 'Lendo', vouLer: 'Vou ler', completo: 'Completo', dropei: 'Dropei' };
+  const cardOf = (f, chapterLabel) => {
     const newIds = load('newChapters', {});
     const rc = readCount[f.id] || 0;
-    // progresso: % do último capítulo lido (se houver histórico com total)
     const last = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === f.id);
     const pct = last && last.total ? Math.min(100, Math.round(((last.page + 1) / last.total) * 100)) : null;
+    const st = statusOf[f.id];
     return `
     <article class="manga-card" onclick="openDetail('${f.id}')">
-      <div class="cover">${coverImg(f.cover, f.title)}${newIds[f.id] ? '<span class="tag novo">NOVO</span>' : ''}${pct != null && libTab === 'favs' ? `<div class="readbar"><i style="width:${pct}%"></i></div>` : ''}</div>
+      <div class="cover">${coverImg(f.cover, f.title)}${newIds[f.id] ? '<span class="tag novo">NOVO</span>' : ''}${st ? `<span class="tag st-${st}">${statusLabel[st]}</span>` : ''}${pct != null && libTab === 'favs' ? `<div class="readbar"><i style="width:${pct}%"></i></div>` : ''}</div>
       <h3>${esc(f.title)}</h3>
-      <div class="sub">${libTab === 'history' ? esc(f.chapter) : (pct != null ? pct + '% lido' : (rc ? rc + ' págs' : ''))}</div>
+      <div class="sub">${chapterLabel || (pct != null ? pct + '% lido' : (rc ? rc + ' págs' : ''))}</div>
     </article>`;
-  }).join('');
+  };
+  // histórico: agrupa por dia (Hoje / Ontem / Esta semana / Antes)
+  if (libTab === 'history' && items.length) {
+    const groups = { hoje: [], ontem: [], semana: [], antes: [] };
+    const now = new Date();
+    const startOf = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+    const today = startOf(now);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
+    for (const h of items) {
+      const d = startOf(h.ts);
+      if (d >= today) groups.hoje.push(h);
+      else if (d >= yesterday) groups.ontem.push(h);
+      else if (d >= weekAgo) groups.semana.push(h);
+      else groups.antes.push(h);
+    }
+    const groupTitles = { hoje: 'Hoje', ontem: 'Ontem', semana: 'Esta semana', antes: 'Mais antigo' };
+    const has = Object.values(groups).some((g) => g.length);
+    if (!has) { empty.hidden = false; grid.innerHTML = ''; return; }
+    grid.innerHTML = Object.entries(groups).filter(([, g]) => g.length).map(([k, g]) => `
+      <div class="lib-group">
+        <div class="lib-group-title">${groupTitles[k]} <span>${g.length}</span></div>
+        <div class="grid">${g.map((f) => cardOf(f, 'Cap. ' + esc(f.chapter || ''))).join('')}</div>
+      </div>`).join('');
+  } else {
+    grid.innerHTML = items.map((f) => cardOf(f)).join('');
+  }
 }
 
 /* ---------- render: detail ---------- */
@@ -3854,6 +3895,12 @@ function bindGlobal() {
     $$('#libSeg .seg-btn').forEach((x) => x.classList.remove('active'));
     b.classList.add('active');
     libTab = b.dataset.lib;
+    renderLibrary();
+  }));
+  $$('#libStatus .ls-chip').forEach((b) => b.addEventListener('click', () => {
+    $$('#libStatus .ls-chip').forEach((x) => x.classList.remove('active'));
+    b.classList.add('active');
+    libStatus = b.dataset.ls;
     renderLibrary();
   }));
   $('#btnFilters').addEventListener('click', openFilters);
