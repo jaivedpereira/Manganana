@@ -692,7 +692,7 @@ function renderHero() {
         </button>
       </div>
       <div class="hero-cover-wrap">
-        <img src="${full}" alt="${esc(t)}" class="hero-right-cover" loading="${i === 0 ? 'eager' : 'lazy'}" decoding="async" />
+        <img src="${full}" alt="${esc(t)}" class="hero-right-cover" loading="eager" decoding="async" />
       </div>
     </div>`;
   }).join('');
