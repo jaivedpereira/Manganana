@@ -107,6 +107,63 @@ def chapter_images_union(leitor_url):
     imgs = re.findall(r'<img[^>]+src="([^"]+\.(?:jpe?g|png|webp))"[^>]*>', html, re.I)
     return [u.replace('&amp;', '&') for u in imgs]
 
+# ---------- busca no Comick (API aberta, funciona no IP residencial) ----------
+COMICK = 'https://api.comick.dev/v1.0'
+
+def comick_search(q):
+    """Busca mangá no Comick. Retorna (titulo, hid) ou None."""
+    url = f'{COMICK}/search?q={urllib.parse.quote(q)}&limit=5'
+    try:
+        d = json.loads(get(url))
+    except Exception as e:
+        print('❌ Comick inacessível:', str(e)[:60])
+        return None
+    if not isinstance(d, list) or not d:
+        print('⚠️ Busca sem resultado no Comick.')
+        return None
+    m = d[0]
+    return (m.get('title') or m.get('slug', q), m.get('hid'))
+
+def comick_chapters(hid, lang='pt-br'):
+    """Lista capítulos de um mangá no Comick. Retorna [(num, hid_chapter, titulo)]."""
+    url = f'{COMICK}/chapter?comic={hid}&lang={lang}&limit=10000&order=asc'
+    try:
+        d = json.loads(get(url))
+    except Exception as e:
+        print('❌ Erro listando capítulos:', str(e)[:60])
+        return []
+    chs = d.get('chapters') or []
+    out = []
+    for c in chs:
+        num = str(c.get('chap', ''))
+        if not num:
+            continue
+        out.append((num, c.get('hid'), c.get('title') or ''))
+    # ordena por número
+    def key(x):
+        try: return float(x[0])
+        except: return 999999
+    out.sort(key=key)
+    return out
+
+def comick_pages(chapter_hid):
+    """Retorna URLs das imagens de um capítulo (md_images)."""
+    url = f'{COMICK}/chapter/{chapter_hid}'
+    d = json.loads(get(url))
+    ch = d.get('chapter') or {}
+    imgs = ch.get('md_images') or ch.get('images') or []
+    urls = []
+    for im in imgs:
+        u = im.get('url') or im.get('src') or ''
+        if not u:
+            continue
+        if u.startswith('/'):
+            u = 'https://meo.comick.pics' + u
+        elif u.startswith('//'):
+            u = 'https:' + u
+        urls.append(u)
+    return urls
+
 # ---------- fluxo principal ----------
 def main():
     args = sys.argv[1:]
@@ -118,16 +175,21 @@ def main():
     cap_a = float(args[1]) if len(args) > 1 else None
     cap_b = float(args[2]) if len(args) > 2 else cap_a
 
-    print(f'🔍 Buscando "{query}" no Union Mangas…')
-    found = search_union(query)
+    print(f'🔍 Buscando "{query}" no Comick…')
+    found = comick_search(query)
+    fonte = 'comick'
     if not found:
-        print('❌ Não achei no Union Mangas. Tente outro nome (ex: "jujutsu").')
+        print('⚠️ Comick sem resultado, tentando Union Mangas…')
+        found = search_union(query)
+        fonte = 'union'
+    if not found:
+        print('❌ Não achei em nenhuma fonte. Tente outro nome (ex: "jujutsu").')
         return
-    titulo, manga_url = found
-    print(f'✅ Encontrado: {titulo}')
+    titulo, hid = found
+    print(f'✅ Encontrado: {titulo} (fonte: {fonte})')
 
     print('📋 Listando capítulos…')
-    caps = list_chapters_union(manga_url)
+    caps = comick_chapters(hid) if fonte == 'comick' else list_chapters_union(hid)
     print(f'📚 {len(caps)} capítulos no total')
     if cap_a:
         caps = [c for c in caps if cap_a <= float(c[0]) <= (cap_b or cap_a)]
@@ -143,7 +205,7 @@ def main():
     for i, (num, cap_url) in enumerate(caps, 1):
         print(f'  [{i}/{total}] Cap. {num}… ', end='', flush=True)
         try:
-            imgs = chapter_images_union(cap_url)
+            imgs = comick_pages(cap_url) if fonte == 'comick' else chapter_images_union(cap_url)
             if not imgs:
                 print('⚠️ sem imagens'); continue
             # baixa as imagens e zipa
