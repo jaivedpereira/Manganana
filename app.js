@@ -1336,6 +1336,7 @@ function renderDetail(m, premium, langs) {
   const lastRead = [...state.history].sort((a, b) => b.ts - a.ts).find((h) => h.id === m.id);
   const hasRead = !!lastRead;
   const pill = state.pill;
+  const ml = state.ml;
   const provider = state.provider;
   const lang = state.lang;
 
