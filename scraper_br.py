@@ -21,10 +21,33 @@ REPO = 'jaivedpereira/manganana-br-data'   # repo onde o índice fica salvo
 BRANCH = 'main'
 
 # ---------- helpers ----------
-def get(url, binary=False):
+import ssl
+import urllib.error
+
+def ssl_ctx():
+    """Contexto SSL: usa certs do Termux; se falhar, tenta sem verificação."""
+    try:
+        ctx = ssl.create_default_context()
+        # Termux guarda os certs aqui
+        ctx.load_verify_locations('/data/data/com.termux/files/usr/etc/tls/cert.pem')
+        return ctx
+    except Exception:
+        return ssl._create_unverified_context()
+
+def get(url, binary=False, _retry=True):
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read() if binary else r.read().decode('utf-8', 'ignore')
+    try:
+        with urllib.request.urlopen(req, timeout=30, context=ssl_ctx()) as r:
+            return r.read() if binary else r.read().decode('utf-8', 'ignore')
+    except ssl.SSLError:
+        # certificado falhou: tenta de novo sem verificar (scraping)
+        if _retry:
+            return get(url, binary, _retry=False)
+        raise
+    except urllib.error.URLError as e:
+        if _retry and isinstance(e.reason, ssl.SSLError):
+            return get(url, binary, _retry=False)
+        raise
 
 def upload_gofile(path):
     """Sobe arquivo pro gofile.io e retorna o link de download direto."""
