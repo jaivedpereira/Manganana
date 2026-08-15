@@ -1356,6 +1356,15 @@ function renderDetail(m, premium, langs) {
         <h2>Capítulos</h2>
         <span>${chs.length} disponíveis</span>
       </div>
+      ${(chs.length <= 15 || (totalCaps && chs.length < totalCaps * 0.6)) && pill ? `
+      <div class="incomplete-banner">
+        <div class="icb-icon">⚠️</div>
+        <div class="icb-body">
+          <strong>Poucos capítulos em português</strong>
+          <p>Este mangá está incompleto no MangaDex (só ${chs.length} em pt-br${totalCaps ? ` de ~${totalCaps} no total` : ''}). O MangaPill tem a obra completa em inglês.</p>
+          <button class="icb-btn" onclick="switchProvider('mangapill')">📖 Ler no MangaPill (inglês)</button>
+        </div>
+      </div>` : ''}
       <div class="lang-row" id="langRow">${langChips}${pill ? `<button class="chip ${provider === 'mangapill' ? 'active' : ''}" onclick="switchProvider('mangapill')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="width: 12px; height: 12px; margin-right: 4px; color: inherit;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>MangaPill</button>` : ''}</div>
       ${providerInfo}
       <div class="chapter-list">
