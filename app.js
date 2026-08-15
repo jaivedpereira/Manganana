@@ -87,7 +87,8 @@ const state = {
   allChapters: {},       // cache: {lang: [capítulos]} por idioma
   lang: 'pt-br',         // idioma ativo
   provider: 'mangadex',  // provedor ativo: mangadex | mangapill
-  pill: null,            // dados do MangaPill (quando disponível)
+  pill: null,          // match no MangaPill {slug, title}
+  brExtra: null,       // capítulos BR extras do scraper {title, chapters:{num:{zip,pages,ts}}}
   reader: null,          // {manga, chapter, pages, baseUrl, hash, idx, provider}
   genres: [],            // tags do MangaDex
 };
@@ -270,7 +271,20 @@ async function findOnPill(title) {
   } catch { return null; }
 }
 
-/* ---------- API MangaDex ---------- */
+/* ---------- MangaDex API ---------- */
+// lê o índice de capítulos BR extras (salvos pelo scraper do celular via GitHub)
+let brExtraCache = null;
+async function brExtraData() {
+  if (brExtraCache) return brExtraCache;
+  try {
+    const r = await fetch('https://raw.githubusercontent.com/jaivedpereira/manganana-br-data/main/br_extra.json', {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!r.ok) { brExtraCache = {}; return brExtraCache; }
+    brExtraCache = await r.json();
+  } catch { brExtraCache = {}; }
+  return brExtraCache;
+}
 async function mdFetch(path) {
   const url = API_BASE === API
     ? API + path                       // localhost: direto
@@ -1252,6 +1266,16 @@ async function openDetail(id, silent = false) {
     state.chapters = chapters;
     // tenta achar no MangaPill (provedor secundário)
     try { state.pill = await findOnPill(mangaTitle(m)); } catch {}
+    // capítulos BR extras (scraper do celular → GitHub)
+    try {
+      const extra = await brExtraData();
+      const t = mangaTitle(m).toLowerCase();
+      const key = Object.keys(extra).find((k) => {
+        const kk = decodeURIComponent(k).toLowerCase();
+        return t.includes(kk) || kk.includes(t.split(':')[0].trim().slice(0, 20));
+      });
+      state.brExtra = key ? extra[key] : null;
+    } catch { state.brExtra = null; }
     renderDetail(m, premium, langs);
   } catch (e) {
     $('#detailContent').innerHTML = `<div class="empty"><p>Erro ao carregar: ${esc(e.message)}</p></div>`;
@@ -1370,6 +1394,7 @@ function renderDetail(m, premium, langs) {
       <div class="chapter-list">
         ${chs.length ? chs.map((c) => chapterItemHTML(c, lastRead)).join('') : `<p class="muted" style="font-size:12px">Nenhum capítulo neste idioma ainda. Tente outro idioma ou o provedor alternativo.</p>`}
       </div>
+      ${state.brExtra ? brExtraSection(state.brExtra) : ''}
       <div class="section-head">
         <h2>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
@@ -1557,6 +1582,90 @@ async function switchProvider(name) {
   }
 }
 
+// ===== capítulos BR extras (scraper do celular) =====
+function brExtraSection(extra) {
+  const chs = Object.entries(extra.chapters || {}).sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
+  if (!chs.length) return '';
+  return `
+  <div class="brx-box">
+    <div class="brx-head">
+      <span class="brx-badge">🇧🇷 EXTRA</span>
+      <div>
+        <strong>Capítulos completos em português</strong>
+        <p class="muted" style="font-size:11px">Baixados pelo scraper — ${chs.length} capítulos, ${chs.reduce((a, [, c]) => a + (c.pages || 0), 0)} páginas</p>
+      </div>
+    </div>
+    <div class="chapter-list brx-list">
+      ${chs.map(([num, c]) => `
+      <div class="chapter-item" onclick="openBrExtra('${state.brExtra.title.replace(/'/g, "\\'")}', '${num}')">
+        <div class="num">${num}</div>
+        <div class="info"><div class="ch-title">Capítulo ${num}</div><div class="ch-sub">${c.pages || '?'} páginas · BR</div></div>
+        <div class="chev">▶</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// abre um capítulo BR extra (baixa o ZIP do gofile e mostra as imagens)
+async function openBrExtra(title, num) {
+  const extra = state.brExtra;
+  if (!extra || !extra.chapters[num]) { toast('Capítulo não encontrado'); return; }
+  const ch = extra.chapters[num];
+  toast('Baixando capítulo…');
+  try {
+    const r = await fetch(px(ch.zip));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const buf = await r.arrayBuffer();
+    // descompacta o ZIP e monta as páginas
+    const z = await new Response(buf).arrayBuffer();
+    // fallback: baixa e extrai via arquivo temporário (JSZip não incluído — usa inflate manual via lib)
+    const pages = await unzipPages(buf);
+    if (!pages.length) throw new Error('ZIP vazio');
+    state.brReader = { title, num, pages, idx: 0 };
+    showView('view-reader');
+    $('#bottomNav').classList.add('hidden');
+    const body = $('#readerBody');
+    body.innerHTML = pages.map((src, i) =>
+      `<img class="page-img vertical" src="${src}" alt="página ${i + 1}" />`).join('');
+    document.title = `${title} Cap. ${num} | Manganana`;
+    body.scrollTop = 0;
+    toast(`${pages.length} páginas`);
+  } catch (e) {
+    toast('Erro ao baixar: ' + e.message);
+  }
+}
+
+// descompacta ZIP e retorna data URLs das imagens
+async function unzipPages(buf) {
+  const out = [];
+  try {
+    const ds = new DecompressionStream('deflate-raw');
+    // JSZip-like manual: procura local file headers
+    const view = new DataView(buf);
+    let off = 0;
+    while (off + 30 <= view.byteLength) {
+      if (view.getUint32(off) !== 0x04034b50) break; // assinatura local file
+      const method = view.getUint16(off + 8);
+      const compSize = view.getUint32(off + 18);
+      const nameLen = view.getUint16(off + 26);
+      const extraLen = view.getUint16(off + 28);
+      const name = new TextDecoder().decode(new Uint8Array(buf, off + 30, nameLen));
+      const dataStart = off + 30 + nameLen + extraLen;
+      const raw = new Uint8Array(buf, dataStart, compSize);
+      if (/\.(jpe?g|png|webp)$/i.test(name)) {
+        let bytes = raw;
+        if (method === 8) { // deflate
+          const ds = new DecompressionStream('deflate-raw');
+          bytes = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer());
+        }
+        const blob = new Blob([bytes], { type: 'image/jpeg' });
+        out.push(URL.createObjectURL(blob));
+      }
+      off = dataStart + compSize;
+    }
+  } catch (e) { console.warn('unzip err', e); }
+  return out;
+}
 /* ---------- leitor ---------- */
 async function openChapter(chapterId, startPage = 0, silent = false) {
   if (!silent) navPush({ view: 'reader', chapterId, page: startPage });

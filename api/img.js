@@ -23,11 +23,12 @@ export default async function handler(req, res) {
     || host === 'media.kitsu.app' || host.endsWith('.kitsu.app') || host.endsWith('.kitsu.io');
   const isPill = host === 'cdn.readdetectiveconan.com' || host.endsWith('.readdetectiveconan.com')
     || host.endsWith('.mangapill.com');
-  if (!isMD && !isAni && !isPill) {
+  const isGo = host === 'media.gofile.io' || host.endsWith('.gofile.io');
+  if (!isMD && !isAni && !isPill && !isGo) {
     return res.status(403).json({ error: 'Domínio não permitido' });
   }
   // cada provedor tem exigência própria de Referer
-  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : 'https://mangadex.org/');
+  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : (isGo ? 'https://gofile.io/' : 'https://mangadex.org/'));
 
   try {
     const r = await fetch(url, {

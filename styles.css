@@ -256,6 +256,25 @@ button:active svg{transform:scale(.92)}
 }
 .icb-btn:active{transform:scale(.96)}
 .lang-row::-webkit-scrollbar{display:none}
+/* capítulos BR extras (scraper do celular) */
+.brx-box{
+  border:1.5px solid rgba(59,220,132,.35);
+  border-radius:16px;padding:14px;margin-bottom:16px;
+  background:linear-gradient(135deg, rgba(59,220,132,.08), rgba(18,23,38,.3));
+}
+.brx-head{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.brx-badge{
+  background:#3ddc84;color:#03170b;font-size:9.5px;font-weight:900;
+  padding:4px 10px;border-radius:999px;letter-spacing:.5px;flex:none;
+}
+.brx-head strong{font-size:13px;display:block}
+.brx-list{max-height:280px;overflow-y:auto;border-radius:12px;background:rgba(0,0,0,.15);padding:6px}
+.brx-list .chapter-item{cursor:pointer;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;transition:.15s}
+.brx-list .chapter-item:active{background:rgba(59,220,132,.15)}
+.brx-list .chapter-item .num{font-size:13px;font-weight:900;color:var(--accent);min-width:38px}
+.brx-list .chapter-item .ch-title{font-size:12.5px;font-weight:700}
+.brx-list .chapter-item .ch-sub{font-size:10px;color:var(--muted)}
+.brx-list .chapter-item .chev{margin-left:auto;color:var(--muted);font-size:11px}
 .lang-row .chip{flex:none;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:10.5px;font-weight:600;padding:7px 13px;border-radius:18px;white-space:nowrap}
 .lang-row .chip.active{background:var(--accent);color:#141300;border-color:var(--accent)}
 .provider-banner{font-size:11px;color:var(--accent);background:var(--accent-soft);border:1px solid #2a2344;border-radius:10px;padding:9px 12px;margin:2px 0 10px}
