@@ -24,11 +24,12 @@ export default async function handler(req, res) {
   const isPill = host === 'cdn.readdetectiveconan.com' || host.endsWith('.readdetectiveconan.com')
     || host.endsWith('.mangapill.com');
   const isGo = host === 'media.gofile.io' || host.endsWith('.gofile.io');
-  if (!isMD && !isAni && !isPill && !isGo) {
+  const isMl = host === 'mangalivre.to' || host.endsWith('.mangalivre.to');
+  if (!isMD && !isAni && !isPill && !isGo && !isMl) {
     return res.status(403).json({ error: 'Domínio não permitido' });
   }
   // cada provedor tem exigência própria de Referer
-  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : (isGo ? 'https://gofile.io/' : 'https://mangadex.org/'));
+  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : (isGo ? 'https://gofile.io/' : (isMl ? 'https://mangalivre.to/' : 'https://mangadex.org/')));
 
   try {
     const r = await fetch(url, {

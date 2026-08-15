@@ -88,6 +88,7 @@ const state = {
   lang: 'pt-br',         // idioma ativo
   provider: 'mangadex',  // provedor ativo: mangadex | mangapill
   pill: null,          // match no MangaPill {slug, title}
+  ml: null,            // match no Manga Livre {slug, title} (capítulos BR completos)
   brExtra: null,       // capítulos BR extras do scraper {title, chapters:{num:{zip,pages,ts}}}
   reader: null,          // {manga, chapter, pages, baseUrl, hash, idx, provider}
   genres: [],            // tags do MangaDex
@@ -271,6 +272,47 @@ async function findOnPill(title) {
   } catch { return null; }
 }
 
+/* ---------- Manga Livre (provedor BR — capítulos completos em pt-br) ---------- */
+const ML_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'https://mangalivre.to'
+  : '/api/mlivre';
+
+async function mlSearch(q) {
+  const url = ML_URL.startsWith('http')
+    ? `${ML_URL}/?s=${encodeURIComponent(q)}`
+    : `${ML_URL}?type=search&q=${encodeURIComponent(q)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Manga Livre ' + r.status);
+  const d = await r.json();
+  return d.data || [];
+}
+
+async function mlManga(slug) {
+  const url = ML_URL.startsWith('http')
+    ? `${ML_URL}/manga/${slug}/ajax/chapters`
+    : `${ML_URL}?type=manga&slug=${encodeURIComponent(slug)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Manga Livre ' + r.status);
+  return r.json();
+}
+
+async function mlChapterPages(capUrl) {
+  const url = ML_URL.startsWith('http')
+    ? capUrl
+    : `${ML_URL}?type=chapter&url=${encodeURIComponent(capUrl)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Manga Livre ' + r.status);
+  const d = await r.json();
+  return d.images || [];
+}
+
+async function findOnMl(title) {
+  try {
+    const res = await mlSearch(title.split(':')[0].trim().slice(0, 40));
+    if (!res.length) return null;
+    return res[0];
+  } catch { return null; }
+}
 /* ---------- MangaDex API ---------- */
 // lê o índice de capítulos BR extras (salvos pelo scraper do celular via GitHub)
 let brExtraCache = null;
@@ -1266,6 +1308,8 @@ async function openDetail(id, silent = false) {
     state.chapters = chapters;
     // tenta achar no MangaPill (provedor secundário)
     try { state.pill = await findOnPill(mangaTitle(m)); } catch {}
+    // tenta achar no Manga Livre (provedor BR — capítulos completos em pt-br)
+    try { state.ml = await findOnMl(mangaTitle(m)); } catch {}
     // capítulos BR extras (scraper do celular → GitHub)
     try {
       const extra = await brExtraData();
@@ -1389,7 +1433,7 @@ function renderDetail(m, premium, langs) {
           <button class="icb-btn" onclick="switchProvider('mangapill')">📖 Ler no MangaPill (inglês)</button>
         </div>
       </div>` : ''}
-      <div class="lang-row" id="langRow">${langChips}${pill ? `<button class="chip ${provider === 'mangapill' ? 'active' : ''}" onclick="switchProvider('mangapill')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="width: 12px; height: 12px; margin-right: 4px; color: inherit;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>MangaPill</button>` : ''}</div>
+      <div class="lang-row" id="langRow">${langChips}${ml ? `<button class="chip ml-chip ${provider === 'mlivre' ? 'active' : ''}" onclick="switchProvider('mlivre')">🇧🇷 Manga Livre</button>` : ''}${pill ? `<button class="chip ${provider === 'mangapill' ? 'active' : ''}" onclick="switchProvider('mangapill')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="width: 12px; height: 12px; margin-right: 4px; color: inherit;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>MangaPill</button>` : ''}</div>
       ${providerInfo}
       <div class="chapter-list">
         ${chs.length ? chs.map((c) => chapterItemHTML(c, lastRead)).join('') : `<p class="muted" style="font-size:12px">Nenhum capítulo neste idioma ainda. Tente outro idioma ou o provedor alternativo.</p>`}
@@ -1552,12 +1596,31 @@ async function switchLang(code) {
   }
 }
 
-// troca de provedor (MangaDex <-> MangaPill)
+// troca de provedor (MangaDex <-> MangaPill <-> Manga Livre)
 async function switchProvider(name) {
   if (!state.detail) return;
   state.provider = name;
   const grid = $('#detailContent');
-  if (name === 'mangapill') {
+  if (name === 'mlivre') {
+    if (!state.ml) { toast('Não encontrado no Manga Livre'); return; }
+    toast('Carregando Manga Livre…');
+    try {
+      const data = await mlManga(state.ml.slug);
+      state.chapters = (data.chapters || []).map((c) => ({
+        id: 'ml_' + c.url,
+        _provider: 'mlivre',
+        _mlUrl: c.url,
+        attributes: {
+          chapter: c.num,
+          title: '',
+          publishAt: null,
+          translatedLanguage: 'pt-br',
+        },
+      }));
+      renderDetail(state.detail, state.premium, [{ code: 'pt-br', count: state.chapters.length }]);
+      if (grid) grid.scrollTop = grid.scrollHeight;
+    } catch (e) { toast('Erro Manga Livre: ' + e.message); }
+  } else if (name === 'mangapill') {
     if (!state.pill) { toast('Não encontrado no MangaPill'); return; }
     toast('Carregando MangaPill…');
     try {
@@ -1686,6 +1749,20 @@ async function openChapter(chapterId, startPage = 0, silent = false) {
       state.reader = {
         manga: state.detail, chapter: ch, pages: data.pages, baseUrl: '', hash: '', idx,
         provider: 'mangapill',
+      };
+      renderReader();
+      if (idx > 0) restorePage(idx);
+      return;
+    }
+
+    // provedor Manga Livre: busca as páginas via proxy
+    if (ch._provider === 'mlivre') {
+      const imgs = await mlChapterPages(ch._mlUrl);
+      if (!imgs.length) throw new Error('sem páginas');
+      const idx = Math.max(0, Math.min(startPage | 0, imgs.length - 1));
+      state.reader = {
+        manga: state.detail, chapter: ch, pages: imgs, baseUrl: '', hash: '', idx,
+        provider: 'mlivre',
       };
       renderReader();
       if (idx > 0) restorePage(idx);
