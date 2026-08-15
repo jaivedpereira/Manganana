@@ -18,5 +18,25 @@
     "ts": 1786832831
    }
   }
+ },
+ "one-piece": {
+  "title": "One Piece",
+  "chapters": {
+   "1100": {
+    "zip": "https://media.gofile.io/download/1df5d8f2-14f3-409a-973d-0932b89dd8e2/tmp2pkgv8f_.zip",
+    "pages": 17,
+    "ts": 1786832892
+   },
+   "1101": {
+    "zip": "https://media.gofile.io/download/33c5e57e-0bce-4c13-b96f-8f3c665f25aa/tmpwns75_ef.zip",
+    "pages": 16,
+    "ts": 1786832913
+   },
+   "1102": {
+    "zip": "https://media.gofile.io/download/47b06923-2d32-4efb-9d3a-48dbbc975d89/tmpnyjyi2cb.zip",
+    "pages": 17,
+    "ts": 1786832933
+   }
+  }
  }
 }
