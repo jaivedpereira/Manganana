@@ -90,6 +90,7 @@ const state = {
   provider: 'mangadex',  // provedor ativo: mangadex | mangapill
   pill: null,          // match no MangaPill {slug, title}
   ml: null,            // match no Manga Livre {slug, title} (capítulos BR completos)
+  vegi: null,          // match na Vegitoons {id, title} (manhwas BR)
   brExtra: null,       // capítulos BR extras do scraper {title, chapters:{num:{zip,pages,ts}}}
   reader: null,          // {manga, chapter, pages, baseUrl, hash, idx, provider}
   genres: [],            // tags do MangaDex
@@ -325,6 +326,41 @@ async function findOnMl(title) {
       if (score > bestScore) { bestScore = score; best = m; }
     }
     // exige pelo menos 1 palavra em comum (ou match parcial forte)
+    if (!best || bestScore < 1) return null;
+    return best;
+  } catch { return null; }
+}
+
+/* ---------- Vegitoons (API GreenShit — 4.494 obras BR, sem Cloudflare) ---------- */
+async function vegiSearch(q) {
+  const r = await fetch(`/api/mlivre?src=vegi&type=search&q=${encodeURIComponent(q)}`);
+  if (!r.ok) throw new Error('Vegitoons ' + r.status);
+  return r.json();
+}
+async function vegiManga(id) {
+  const r = await fetch(`/api/mlivre?src=vegi&type=manga&slug=${encodeURIComponent(id)}`);
+  if (!r.ok) throw new Error('Vegitoons ' + r.status);
+  return r.json();
+}
+async function vegiChapter(id) {
+  const r = await fetch(`/api/mlivre?src=vegi&type=chapter&slug=${encodeURIComponent(id)}`);
+  if (!r.ok) throw new Error('Vegitoons ' + r.status);
+  const d = await r.json();
+  return d.images || [];
+}
+async function findOnVegi(title) {
+  try {
+    const d = await vegiSearch(title.split(':')[0].trim().slice(0, 40));
+    if (!d.data || !d.data.length) return null;
+    const t = title.toLowerCase();
+    const words = t.split(/\s+/).filter((w) => w.length > 3);
+    let best = null, bestScore = 0;
+    for (const m of d.data) {
+      const mt = (m.title || '').toLowerCase();
+      let score = 0;
+      for (const w of words) if (mt.includes(w)) score++;
+      if (score > bestScore) { bestScore = score; best = m; }
+    }
     if (!best || bestScore < 1) return null;
     return best;
   } catch { return null; }
@@ -1319,6 +1355,8 @@ async function openDetail(id, silent = false) {
     try { state.pill = await findOnPill(mangaTitle(m)); } catch {}
     // tenta achar no Manga Livre (provedor BR — capítulos completos em pt-br)
     try { state.ml = await findOnMl(mangaTitle(m)); } catch {}
+    // tenta achar na Vegitoons (provedor BR — manhwas completos)
+    try { state.vegi = await findOnVegi(mangaTitle(m)); } catch {}
     // carrega capítulos do idioma ativo escolhendo a fonte mais completa
     await loadChaptersForLang('pt-br');
     // capítulos BR extras (scraper do celular → GitHub)
@@ -1440,6 +1478,10 @@ function renderDetail(m, premium, langs) {
       <div class="auto-source">
         <span class="as-badge">🇧🇷 Fonte automática: Manga Livre</span>
         <span class="as-sub">Catálogo BR completo (${chs.length} capítulos em português)</span>
+      </div>` : provider === 'vegi' ? `
+      <div class="auto-source">
+        <span class="as-badge">🇧🇷 Fonte automática: Vegitoons</span>
+        <span class="as-sub">Catálogo BR (${chs.length} capítulos em português)</span>
       </div>` : provider === 'mangapill' ? `
       <div class="auto-source">
         <span class="as-badge">🇺🇸 Fonte automática: MangaPill</span>
@@ -1624,20 +1666,36 @@ async function loadChaptersForLang(code) {
   let best = chs;
   let provider = 'mangadex';
 
-  // 2. pt-br: compara com Manga Livre (BR completo)
-  if (code === 'pt-br' && state.ml) {
-    try {
-      const data = await mlManga(state.ml.slug);
-      const mlChs = (data.chapters || []).map((c) => ({
-        id: 'ml_' + c.url,
-        _provider: 'mlivre',
-        _mlUrl: c.url,
-        attributes: {
-          chapter: c.num, title: '', publishAt: null, translatedLanguage: 'pt-br',
-        },
-      }));
-      if (mlChs.length > best.length) { best = mlChs; provider = 'mlivre'; }
-    } catch {}
+  // 2. pt-br: compara com Manga Livre (BR completo) e Vegitoons (manhwas BR)
+  if (code === 'pt-br') {
+    if (state.ml) {
+      try {
+        const data = await mlManga(state.ml.slug);
+        const mlChs = (data.chapters || []).map((c) => ({
+          id: 'ml_' + c.url,
+          _provider: 'mlivre',
+          _mlUrl: c.url,
+          attributes: {
+            chapter: c.num, title: '', publishAt: null, translatedLanguage: 'pt-br',
+          },
+        }));
+        if (mlChs.length > best.length) { best = mlChs; provider = 'mlivre'; }
+      } catch {}
+    }
+    if (state.vegi) {
+      try {
+        const data = await vegiManga(state.vegi.id);
+        const vegiChs = (data.chapters || []).map((c) => ({
+          id: 'vegi_' + c.id,
+          _provider: 'vegi',
+          _vegiId: c.id,
+          attributes: {
+            chapter: c.num, title: c.title || '', publishAt: null, translatedLanguage: 'pt-br',
+          },
+        }));
+        if (vegiChs.length > best.length) { best = vegiChs; provider = 'vegi'; }
+      } catch {}
+    }
   }
 
   // 3. en: compara com MangaPill (inglês completo)
@@ -1835,6 +1893,20 @@ async function openChapter(chapterId, startPage = 0, silent = false) {
       return;
     }
 
+    // provedor Vegitoons: busca as páginas via proxy
+    if (ch._provider === 'vegi') {
+      const imgs = await vegiChapter(ch._vegiId);
+      if (!imgs.length) throw new Error('sem páginas');
+      const idx = Math.max(0, Math.min(startPage | 0, imgs.length - 1));
+      state.reader = {
+        manga: state.detail, chapter: ch, pages: imgs, baseUrl: '', hash: '', idx,
+        provider: 'vegi',
+      };
+      renderReader();
+      if (idx > 0) restorePage(idx);
+      return;
+    }
+
     // provedor MangaDex: at-home server
     const srv = await getChapterPages(chapterId);
     const base = srv.baseUrl;
@@ -1874,8 +1946,8 @@ function renderReader() {
   $('#readerChapterName').textContent = chapterNum(r.chapter) + (chapterTitle(r.chapter) ? ' — ' + chapterTitle(r.chapter) : '');
   document.title = `${chapterNum(r.chapter)} — ${mangaTitle(r.manga)} | Manganana`;
   body.classList.toggle('rtl', state.settings.rtl);
-  // MangaPill/Manga Livre: páginas já são URLs completas; MangaDex: baseUrl/hash/file
-  const urls = (r.provider === 'mangapill' || r.provider === 'mlivre')
+  // MangaPill/Manga Livre/Vegitoons: páginas já são URLs completas; MangaDex: baseUrl/hash/file
+  const urls = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi')
     ? r.pages.map((p) => px(p))
     : r.pages.map((p) => px(r.baseUrl + '/data/' + r.hash + '/' + p));
   body.innerHTML = urls.map((src, i) => readerPageHTML(src, i, mode)).join('') +
@@ -4441,7 +4513,7 @@ async function downloadChapter() {
   if (!('serviceWorker' in navigator)) { toast('Offline não disponível neste navegador'); return; }
   // px() resolve certo em cada ambiente: localhost usa URL direta,
   // produção usa /api/img (que tem o UA correto p/ MangaDex)
-  const raw = (r.provider === 'mangapill' || r.provider === 'mlivre')
+  const raw = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi')
     ? r.pages
     : r.pages.map((p) => r.baseUrl + '/data/' + r.hash + '/' + p);
   const urls = raw.map((u) => px(u));

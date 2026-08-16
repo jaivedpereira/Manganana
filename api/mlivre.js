@@ -13,9 +13,41 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  const { type = 'search', q = '', slug = '', url = '' } = req.query;
+  const { type = 'search', q = '', slug = '', url = '', src = 'to' } = req.query;
 
   try {
+    // ============ FONTE: Vegitoons (API GreenShit — 4.494 obras BR, sem Cloudflare) ============
+    if (src === 'vegi') {
+      const VAPI = 'https://api.vegitoons.black';
+      if (type === 'search') {
+        const r = await fetch(`${VAPI}/obras/buscar?obr_nome=${encodeURIComponent(q)}&pagina=1`, {
+          headers: { 'User-Agent': UA },
+        });
+        const d = await r.json();
+        const obras = (d.obras || []).map((o) => ({
+          id: o.obr_id, slug: String(o.obr_id), title: o.obr_nome || '',
+          cover: o.obr_imagem || '',
+        }));
+        return res.json({ data: obras, total: d.total || 0 });
+      }
+      if (type === 'manga') {
+        const r = await fetch(`${VAPI}/obras/${slug}`, { headers: { 'User-Agent': UA } });
+        const d = await r.json();
+        const caps = (d.capitulos || [])
+          .map((c) => ({ num: String(c.cap_numero), id: String(c.cap_id), title: c.cap_nome || '' }))
+          .sort((a, b) => parseFloat(a.num) - parseFloat(b.num));
+        return res.json({ total: caps.length, title: d.obr_nome || '', chapters: caps });
+      }
+      if (type === 'chapter') {
+        const r = await fetch(`${VAPI}/capitulos/${slug}`, { headers: { 'User-Agent': UA } });
+        const d = await r.json();
+        const pages = (d.cap_paginas || []).map((u, i) => ({ number: i + 1, imageUrl: u }));
+        return res.json({ total: pages.length, images: pages.map((p) => p.imageUrl) });
+      }
+      return res.status(400).json({ error: 'tipo inválido' });
+    }
+
+    // ============ FONTE: Manga Livre .to (Madara — sem Cloudflare) ============
     if (type === 'search') {
       // busca: pega o primeiro resultado de mangá
       const r = await fetch(`${BASE}/?s=${encodeURIComponent(q)}`, {
