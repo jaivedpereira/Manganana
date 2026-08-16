@@ -85,6 +85,7 @@ const state = {
   premium: null,         // dados premium (AniList) do mangá atual
   chapters: [],          // capítulos do mangá atual (provedor/idioma ativo)
   allChapters: {},       // cache: {lang: [capítulos]} por idioma
+  autoProvider: {},      // cache: {lang: provedor escolhido automaticamente}
   lang: 'pt-br',         // idioma ativo
   provider: 'mangadex',  // provedor ativo: mangadex | mangapill
   pill: null,          // match no MangaPill {slug, title}
@@ -1304,27 +1305,22 @@ async function openDetail(id, silent = false) {
     state.lang = 'pt-br';
     state.provider = 'mangadex';
     state.allChapters = {};
+    state.autoProvider = {};
     state.pill = null;
+    state.ml = null;
     // busca dados premium (AniList) em paralelo — não bloqueia se falhar
     let premium = null;
     try { premium = await fetchAniList(mangaTitle(m)); } catch {}
     state.premium = premium;
-    // busca idiomas disponíveis + capítulos pt-br em paralelo
+    // busca idiomas disponíveis (paralelo, não bloqueia)
     let langs = [{ code: 'pt-br', count: 0 }];
-    let chapters = [];
-    try {
-      const [l, c] = await Promise.all([
-        mangaLanguages(id),
-        getChaptersLang(id, 'pt-br'),
-      ]);
-      if (l.length) langs = l;
-      chapters = c;
-    } catch { try { chapters = await getChapters(id); } catch {} }
-    state.chapters = chapters;
+    try { const l = await mangaLanguages(id); if (l.length) langs = l; } catch {}
     // tenta achar no MangaPill (provedor secundário)
     try { state.pill = await findOnPill(mangaTitle(m)); } catch {}
     // tenta achar no Manga Livre (provedor BR — capítulos completos em pt-br)
     try { state.ml = await findOnMl(mangaTitle(m)); } catch {}
+    // carrega capítulos do idioma ativo escolhendo a fonte mais completa
+    await loadChaptersForLang('pt-br');
     // capítulos BR extras (scraper do celular → GitHub)
     try {
       const extra = await brExtraData();
@@ -1440,6 +1436,15 @@ function renderDetail(m, premium, langs) {
         <h2>Capítulos</h2>
         <span>${chs.length} disponíveis</span>
       </div>
+      ${provider === 'mlivre' ? `
+      <div class="auto-source">
+        <span class="as-badge">🇧🇷 Fonte automática: Manga Livre</span>
+        <span class="as-sub">Catálogo BR completo (${chs.length} capítulos em português)</span>
+      </div>` : provider === 'mangapill' ? `
+      <div class="auto-source">
+        <span class="as-badge">🇺🇸 Fonte automática: MangaPill</span>
+        <span class="as-sub">Catálogo EN completo (${chs.length} capítulos em inglês)</span>
+      </div>` : ''}
       ${(chs.length <= 15 || (totalCaps && chs.length < totalCaps * 0.6)) && pill ? `
       <div class="incomplete-banner">
         <div class="icb-icon">⚠️</div>
@@ -1590,26 +1595,71 @@ function resumeRead() {
   else toast('Sem capítulos disponíveis');
 }
 
-// troca o idioma dos capítulos (MangaDex)
+// troca o idioma dos capítulos — modo agregado: escolhe automaticamente a fonte mais completa
 async function switchLang(code) {
   if (!state.detail) return;
   state.lang = code;
-  state.provider = 'mangadex';
   const grid = $('#detailContent');
   toast('Carregando ' + langName(code) + '…');
   try {
-    // usa cache se já carregou esse idioma
-    let chs = state.allChapters[code];
-    if (!chs) {
-      chs = await getChaptersLang(state.detail.id, code);
-      state.allChapters[code] = chs;
-    }
-    state.chapters = chs;
+    await loadChaptersForLang(code);
     renderDetail(state.detail, state.premium, await mangaLanguages(state.detail.id));
     if (grid) grid.scrollTop = grid.scrollHeight;
   } catch (e) {
     toast('Erro: ' + e.message);
   }
+}
+
+// carrega capítulos do idioma escolhendo a fonte MAIS COMPLETA automaticamente
+async function loadChaptersForLang(code) {
+  // cache por idioma (guarda a fonte escolhida também)
+  if (state.allChapters[code] && state.autoProvider[code]) {
+    state.chapters = state.allChapters[code];
+    state.provider = state.autoProvider[code];
+    return;
+  }
+  // 1. MangaDex no idioma
+  let chs = [];
+  try { chs = await getChaptersLang(state.detail.id, code); } catch {}
+  let best = chs;
+  let provider = 'mangadex';
+
+  // 2. pt-br: compara com Manga Livre (BR completo)
+  if (code === 'pt-br' && state.ml) {
+    try {
+      const data = await mlManga(state.ml.slug);
+      const mlChs = (data.chapters || []).map((c) => ({
+        id: 'ml_' + c.url,
+        _provider: 'mlivre',
+        _mlUrl: c.url,
+        attributes: {
+          chapter: c.num, title: '', publishAt: null, translatedLanguage: 'pt-br',
+        },
+      }));
+      if (mlChs.length > best.length) { best = mlChs; provider = 'mlivre'; }
+    } catch {}
+  }
+
+  // 3. en: compara com MangaPill (inglês completo)
+  if (code === 'en' && state.pill) {
+    try {
+      const data = await pillManga(state.pill.slug);
+      const pillChs = (data.chapters || []).map((c, i) => ({
+        id: 'pill_' + c.slug,
+        _provider: 'mangapill',
+        _pillSlug: c.slug,
+        attributes: {
+          chapter: String(i + 1), title: c.title, publishAt: null, translatedLanguage: 'en',
+        },
+      }));
+      if (pillChs.length > best.length) { best = pillChs; provider = 'mangapill'; }
+    } catch {}
+  }
+
+  state.chapters = best;
+  state.provider = provider;
+  state.allChapters[code] = best;
+  state.autoProvider[code] = provider;
 }
 
 // troca de provedor (MangaDex <-> MangaPill <-> Manga Livre)

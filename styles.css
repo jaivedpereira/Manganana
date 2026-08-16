@@ -279,6 +279,14 @@ button:active svg{transform:scale(.92)}
 .lang-row .chip.active{background:var(--accent);color:#141300;border-color:var(--accent)}
 .lang-row .chip.ml-chip{background:rgba(59,220,132,.12);border-color:rgba(59,220,132,.4);color:#3ddc84;font-weight:800}
 .lang-row .chip.ml-chip.active{background:#3ddc84;color:#03170b;border-color:#3ddc84}
+/* badge de fonte automática (agregador) */
+.auto-source{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--accent-soft);border:1px solid rgba(255,214,10,.2);
+  border-radius:12px;padding:9px 12px;margin:2px 0 10px;
+}
+.as-badge{font-size:11px;font-weight:800;color:var(--accent)}
+.as-sub{font-size:10px;color:var(--muted)}
 .provider-banner{font-size:11px;color:var(--accent);background:var(--accent-soft);border:1px solid #2a2344;border-radius:10px;padding:9px 12px;margin:2px 0 10px}
 .provider-banner b{font-weight:800}
 
