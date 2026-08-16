@@ -1809,8 +1809,8 @@ function renderReader() {
   $('#readerChapterName').textContent = chapterNum(r.chapter) + (chapterTitle(r.chapter) ? ' — ' + chapterTitle(r.chapter) : '');
   document.title = `${chapterNum(r.chapter)} — ${mangaTitle(r.manga)} | Manganana`;
   body.classList.toggle('rtl', state.settings.rtl);
-  // MangaPill: páginas já são URLs completas; MangaDex: baseUrl/hash/file
-  const urls = r.provider === 'mangapill'
+  // MangaPill/Manga Livre: páginas já são URLs completas; MangaDex: baseUrl/hash/file
+  const urls = (r.provider === 'mangapill' || r.provider === 'mlivre')
     ? r.pages.map((p) => px(p))
     : r.pages.map((p) => px(r.baseUrl + '/data/' + r.hash + '/' + p));
   body.innerHTML = urls.map((src, i) => readerPageHTML(src, i, mode)).join('') +
@@ -4376,7 +4376,7 @@ async function downloadChapter() {
   if (!('serviceWorker' in navigator)) { toast('Offline não disponível neste navegador'); return; }
   // px() resolve certo em cada ambiente: localhost usa URL direta,
   // produção usa /api/img (que tem o UA correto p/ MangaDex)
-  const raw = r.provider === 'mangapill'
+  const raw = (r.provider === 'mangapill' || r.provider === 'mlivre')
     ? r.pages
     : r.pages.map((p) => r.baseUrl + '/data/' + r.hash + '/' + p);
   const urls = raw.map((u) => px(u));
