@@ -38,23 +38,37 @@ def post(url, referer, data):
 
 # ---------- Manga Livre (.to — sem Cloudflare, principal) ----------
 def ml_search(q):
-    """Busca mangá no Manga Livre .to. Retorna (titulo, slug) ou None."""
-    html = get(f'{BASE}/?s={urllib.parse.quote(q)}')
-    m = re.search(r'href="' + re.escape(BASE) + r'/manga/([^"/]+)/"', html)
-    if not m:
-        print('⚠️ Busca sem resultado no Manga Livre.')
-        return None
-    slug = m.group(1)
-    # título real: h1 da página do mangá (o h3 da busca é SEO text)
-    titulo = slug.replace('-', ' ').title()
-    try:
-        ph = get(f'{BASE}/manga/{slug}/')
-        h1 = re.findall(r'<h1[^>]*>([^<]+)</h1>', ph)
-        if h1:
-            titulo = h1[0].strip()
-    except Exception:
-        pass
-    return (titulo, slug)
+    """Busca mangá no Manga Livre .to. Retorna (titulo, slug) ou None.
+    Tenta variações do nome automaticamente."""
+    variacoes = [q]
+    palavras = q.split()
+    if len(palavras) > 1:
+        variacoes.append(palavras[-1])           # 'punpun'
+        variacoes.append(' '.join(palavras[:2])) # 'boa noite'
+    vistos = set()
+    for v in variacoes:
+        if v in vistos: continue
+        vistos.add(v)
+        try:
+            html = get(f'{BASE}/?s={urllib.parse.quote(v)}')
+            m = re.search(r'href="' + re.escape(BASE) + r'/manga/([^"/]+)/"', html)
+            if m:
+                slug = m.group(1)
+                # título real: h1 da página do mangá (o h3 da busca é SEO text)
+                titulo = slug.replace('-', ' ').title()
+                try:
+                    ph = get(f'{BASE}/manga/{slug}/')
+                    h1 = re.findall(r'<h1[^>]*>([^<]+)</h1>', ph)
+                    if h1:
+                        titulo = h1[0].strip()
+                except Exception:
+                    pass
+                print(f'   🔎 .to: "{v}" → {titulo[:40]}')
+                return (titulo, slug)
+        except Exception:
+            pass
+    print('⚠️ Busca sem resultado no Manga Livre.')
+    return None
 
 def ml_chapters(slug):
     """Lista capítulos via AJAX do Madara. Retorna [(num, url)]."""
@@ -105,23 +119,37 @@ def upload_gofile(path):
 MLORG = 'https://mangalivre.org'
 
 def mlorg_search(q):
-    """Busca via API do mangalivre.org. Retorna (titulo, slug) ou None."""
-    try:
-        data = urllib.parse.urlencode({'search': q}).encode()
-        req = urllib.request.Request(f'{MLORG}/lib/search/series.json', data=data, headers={
-            **UA, 'Content-Type': 'application/x-www-form-urlencoded',
-            'X-Requested-With': 'XMLHttpRequest', 'Origin': MLORG, 'Referer': MLORG + '/'})
-        with urllib.request.urlopen(req, timeout=40) as r:
-            d = json.loads(r.read().decode())
-        # d é {categoria: [SearchItemDto{label, link, cover}]}
-        for lista in d.values():
-            if not isinstance(lista, list) or not lista:
-                continue
-            item = lista[0]
-            slug = item.get('link', '').rstrip('/').split('/')[-1]
-            return (item.get('label', slug), slug)
-    except Exception as e:
-        print('⚠️ mangalivre.org inacessível:', str(e)[:50])
+    """Busca via API do mangalivre.org. Retorna (titulo, slug) ou None.
+    Tenta variações do nome automaticamente (ex: 'boa noite punpun' → 'punpun')."""
+    variacoes = [q]
+    # última palavra (ex: punpun), primeira palavra, sem acentos
+    palavras = q.split()
+    if len(palavras) > 1:
+        variacoes.append(palavras[-1])           # 'punpun'
+        variacoes.append(' '.join(palavras[:2])) # 'boa noite'
+    variacoes.append(re.sub(r'[áàâãäéèêëíìîïóòôõöúùûüç]', lambda m: {'á':'a','à':'a','â':'a','ã':'a','ä':'a','é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i','ó':'o','ò':'o','ô':'o','õ':'o','ö':'o','ú':'u','ù':'u','û':'u','ü':'u','ç':'c'}[m.group(0)], q))
+    vistos = set()
+    for v in variacoes:
+        if v in vistos: continue
+        vistos.add(v)
+        try:
+            data = urllib.parse.urlencode({'search': v}).encode()
+            req = urllib.request.Request(f'{MLORG}/lib/search/series.json', data=data, headers={
+                **UA, 'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest', 'Origin': MLORG, 'Referer': MLORG + '/'})
+            with urllib.request.urlopen(req, timeout=40) as r:
+                d = json.loads(r.read().decode())
+            # d é {categoria: [SearchItemDto{label, link, cover}]}
+            for lista in d.values():
+                if not isinstance(lista, list) or not lista:
+                    continue
+                item = lista[0]
+                slug = item.get('link', '').rstrip('/').split('/')[-1]
+                print(f'   🔎 .org: "{v}" → {item.get("label", slug)[:40]}')
+                return (item.get('label', slug), slug)
+        except Exception as e:
+            print('⚠️ mangalivre.org inacessível:', str(e)[:50])
+            return None
     return None
 
 def mlorg_chapters(slug):
