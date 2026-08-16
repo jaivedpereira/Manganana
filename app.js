@@ -310,7 +310,22 @@ async function findOnMl(title) {
   try {
     const res = await mlSearch(title.split(':')[0].trim().slice(0, 40));
     if (!res.length) return null;
-    return res[0];
+    // valida por similaridade (evita falso positivo tipo "punpun" → "Witches and Cigarettes")
+    const t = title.toLowerCase();
+    const words = t.split(/\s+/).filter((w) => w.length > 3);
+    let best = null, bestScore = 0;
+    for (const m of res) {
+      const mt = (m.title || m.slug || '').toLowerCase();
+      let score = 0;
+      for (const w of words) if (mt.includes(w)) score++;
+      // bônus se o slug bate com alguma palavra do título
+      const slugWords = (m.slug || '').split('-');
+      for (const w of words) if (slugWords.includes(w)) score += 2;
+      if (score > bestScore) { bestScore = score; best = m; }
+    }
+    // exige pelo menos 1 palavra em comum (ou match parcial forte)
+    if (!best || bestScore < 1) return null;
+    return best;
   } catch { return null; }
 }
 /* ---------- MangaDex API ---------- */
