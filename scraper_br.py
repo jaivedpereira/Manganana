@@ -36,9 +36,9 @@ def post(url, referer, data):
     with urllib.request.urlopen(req, timeout=40) as r:
         return r.read().decode('utf-8', 'ignore')
 
-# ---------- Manga Livre ----------
+# ---------- Manga Livre (.to — sem Cloudflare, principal) ----------
 def ml_search(q):
-    """Busca mangá no Manga Livre. Retorna (titulo, slug) ou None."""
+    """Busca mangá no Manga Livre .to. Retorna (titulo, slug) ou None."""
     html = get(f'{BASE}/?s={urllib.parse.quote(q)}')
     m = re.search(r'href="' + re.escape(BASE) + r'/manga/([^"/]+)/"', html)
     if not m:
@@ -101,6 +101,51 @@ def upload_gofile(path):
     info = d['data']
     return f"https://media.gofile.io/download/{info['id']}/{info['name']}"
 
+# ---------- Manga Livre .org (API REST — Cloudflare, funciona no celular) ----------
+MLORG = 'https://mangalivre.org'
+
+def mlorg_search(q):
+    """Busca via API do mangalivre.org. Retorna (titulo, slug) ou None."""
+    try:
+        data = urllib.parse.urlencode({'search': q}).encode()
+        req = urllib.request.Request(f'{MLORG}/lib/search/series.json', data=data, headers={
+            **UA, 'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest', 'Origin': MLORG, 'Referer': MLORG + '/'})
+        with urllib.request.urlopen(req, timeout=40) as r:
+            d = json.loads(r.read().decode())
+        # d é {categoria: [SearchItemDto{label, link, cover}]}
+        for lista in d.values():
+            if not isinstance(lista, list) or not lista:
+                continue
+            item = lista[0]
+            slug = item.get('link', '').rstrip('/').split('/')[-1]
+            return (item.get('label', slug), slug)
+    except Exception as e:
+        print('⚠️ mangalivre.org inacessível:', str(e)[:50])
+    return None
+
+def mlorg_chapters(slug):
+    """Capítulos via API: GET /api/v1/mangas/{slug}. Retorna [(num, chapter_id)]."""
+    d = json.loads(get(f'{MLORG}/api/v1/mangas/{slug}'))
+    chs = d.get('chapters', [])
+    out = []
+    for c in chs:
+        num = str(c.get('number', ''))
+        if not num:
+            continue
+        out.append((num, c.get('id')))
+    def key(x):
+        try: return float(x[0])
+        except: return 999999
+    out.sort(key=key)
+    return out
+
+def mlorg_pages(chapter_id):
+    """Páginas via API: GET /api/v1/chapters/{id}. Retorna [urls]."""
+    d = json.loads(get(f'{MLORG}/api/v1/chapters/{chapter_id}'))
+    pages = sorted(d.get('pages', []), key=lambda p: p.get('number', 0))
+    return [p['imageUrl'] for p in pages if p.get('imageUrl')]
+
 # ---------- fluxo principal ----------
 def main():
     args = sys.argv[1:]
@@ -112,16 +157,28 @@ def main():
     cap_a = float(args[1]) if len(args) > 1 else None
     cap_b = float(args[2]) if len(args) > 2 else cap_a
 
-    print(f'🔍 Buscando "{query}" no Manga Livre…')
+    print(f'🔍 Buscando "{query}"…')
+    # fonte 1: Manga Livre .to (sem Cloudflare — funciona em qualquer lugar)
     found = ml_search(query)
+    fonte = 'mangalivre.to'
+    # fonte 2: Manga Livre .org (API REST — precisa IP residencial)
     if not found:
-        print('❌ Não achei. Tente outro nome (ex: "jujutsu", "punpun").')
+        print('⚠️ .to sem resultado, tentando mangalivre.org…')
+        found = mlorg_search(query)
+        fonte = 'mangalivre.org'
+    if not found:
+        print('❌ Não achei em nenhuma fonte. Tente outro nome (ex: "jujutsu", "punpun").')
         return
-    titulo, slug = found
-    print(f'✅ Encontrado: {titulo}')
+    titulo, hid = found
+    print(f'✅ Encontrado: {titulo} (fonte: {fonte})')
 
     print('📋 Listando capítulos…')
-    caps = ml_chapters(slug)
+    if fonte == 'mangalivre.org':
+        caps = mlorg_chapters(hid)
+        pagina_fn = mlorg_pages
+    else:
+        caps = ml_chapters(hid)
+        pagina_fn = ml_pages
     if not caps:
         print('❌ Nenhum capítulo encontrado.')
         return
@@ -140,7 +197,7 @@ def main():
     for i, (num, cap_url) in enumerate(caps, 1):
         print(f'  [{i}/{total}] Cap. {num}… ', end='', flush=True)
         try:
-            imgs = ml_pages(cap_url)
+            imgs = pagina_fn(cap_url)
             if not imgs:
                 print('⚠️ sem imagens'); continue
             zdata = io.BytesIO()
