@@ -39,7 +39,8 @@ def post(url, referer, data):
 # ---------- Manga Livre (.to — sem Cloudflare, principal) ----------
 def ml_search(q):
     """Busca mangá no Manga Livre .to. Retorna (titulo, slug) ou None.
-    Tenta variações do nome automaticamente."""
+    Tenta variações do nome automaticamente e valida similaridade
+    (evita falso positivo tipo 'punpun' → 'Witches and Cigarettes')."""
     variacoes = [q]
     palavras = q.split()
     if len(palavras) > 1:
@@ -51,10 +52,10 @@ def ml_search(q):
         vistos.add(v)
         try:
             html = get(f'{BASE}/?s={urllib.parse.quote(v)}')
-            m = re.search(r'href="' + re.escape(BASE) + r'/manga/([^"/]+)/"', html)
-            if m:
-                slug = m.group(1)
-                # título real: h1 da página do mangá (o h3 da busca é SEO text)
+            # coleta TODOS os resultados da busca
+            achados = re.findall(r'href="' + re.escape(BASE) + r'/manga/([^"/]+)/"', html)
+            for slug in dict.fromkeys(achados):
+                # título real: h1 da página do mangá
                 titulo = slug.replace('-', ' ').title()
                 try:
                     ph = get(f'{BASE}/manga/{slug}/')
@@ -63,12 +64,28 @@ def ml_search(q):
                         titulo = h1[0].strip()
                 except Exception:
                     pass
+                # valida similaridade: o título achado deve bater com a busca
+                if not _similar(titulo + ' ' + slug, v):
+                    print(f'   🔎 .to: "{v}" → {titulo[:35]} (não é o que buscamos, pulando)')
+                    continue
                 print(f'   🔎 .to: "{v}" → {titulo[:40]}')
                 return (titulo, slug)
         except Exception:
             pass
     print('⚠️ Busca sem resultado no Manga Livre.')
     return None
+
+def _similar(titulo_achado, query):
+    """True se o título achado tem palavra em comum relevante com a busca."""
+    t = titulo_achado.lower()
+    q = query.lower()
+    if q in t or t in q:
+        return True
+    palavras = q.split()
+    for w in palavras:
+        if len(w) > 3 and (w in t or any(w in s for s in t.replace('-', ' ').split())):
+            return True
+    return False
 
 def ml_chapters(slug):
     """Lista capítulos via AJAX do Madara. Retorna [(num, url)]."""
@@ -143,10 +160,14 @@ def mlorg_search(q):
             for lista in d.values():
                 if not isinstance(lista, list) or not lista:
                     continue
-                item = lista[0]
-                slug = item.get('link', '').rstrip('/').split('/')[-1]
-                print(f'   🔎 .org: "{v}" → {item.get("label", slug)[:40]}')
-                return (item.get('label', slug), slug)
+                for item in lista:
+                    label = item.get('label', '') or ''
+                    slug = item.get('link', '').rstrip('/').split('/')[-1]
+                    if not _similar(label + ' ' + slug, v):
+                        continue
+                    print(f'   🔎 .org: "{v}" → {label[:40]}')
+                    return (label, slug)
+            print(f'   🔎 .org: "{v}" → sem match válido')
         except Exception as e:
             print('⚠️ mangalivre.org inacessível:', str(e)[:50])
             return None
