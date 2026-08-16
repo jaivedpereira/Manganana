@@ -47,6 +47,57 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'tipo inválido' });
     }
 
+    // ============ FONTE: Comick .live (agregador global — capítulos BR via servidor) ============
+    if (src === 'ck') {
+      const CK = 'https://comick.live';
+      const CKH = { 'User-Agent': UA, 'Referer': 'https://comick.live/', 'Accept': 'application/json' };
+      if (type === 'search') {
+        // busca via api.comick.dev (sem CF na busca)
+        const r = await fetch('https://api.comick.dev/v1.0/search?q=' + encodeURIComponent(q) + '&limit=8', {
+          headers: { 'User-Agent': UA },
+        });
+        if (!r.ok) throw new Error('ck search ' + r.status);
+        const d = await r.json();
+        const list = (d || []).map((m) => ({
+          slug: m.slug, title: m.title || (m.md_titles || []).map((t) => t.title).find(Boolean) || m.slug,
+          hid: m.hid, lastChapter: m.last_chapter || 0,
+        }));
+        return res.json({ data: list });
+      }
+      if (type === 'manga') {
+        const lang = req.query.lang || 'pt-br';
+        let all = [], page = 1;
+        for (;;) {
+          const r = await fetch(`${CK}/api/comics/${slug}/chapter-list?lang=${lang}&page=${page}`, { headers: CKH });
+          if (!r.ok) throw new Error('ck caps ' + r.status);
+          const d = await r.json();
+          const data = d?.data || [];
+          all = all.concat(data);
+          if (!d?.hasNextPage || !data.length || page > 10) break;
+          page++;
+        }
+        const caps = all.map((c) => ({
+          num: String(c.chap), hid: c.hid, title: c.title || '', vol: c.vol || '',
+          group: (c.group_name || []).join(', '),
+        }));
+        return res.json({ total: caps.length, title: slug.replace(/-/g, ' '), chapters: caps });
+      }
+      if (type === 'chapter') {
+        // página do leitor: /comic/{slug}/{hid}-chapter-{chap}-{lang} tem o JSON #sv-data
+        const r = await fetch(`${CK}/comic/${slug}/${req.query.hid}-chapter-${req.query.chap}-${req.query.lang || 'pt-br'}`, {
+          headers: { 'User-Agent': UA, 'Referer': 'https://comick.live/' },
+        });
+        if (!r.ok) throw new Error('ck reader ' + r.status);
+        const html = await r.text();
+        const m = html.match(/id="sv-data"[^>]*>([^<]+)</);
+        if (!m) throw new Error('sem sv-data');
+        const d = JSON.parse(m[1]);
+        const imgs = (d?.chapter?.images || []).map((i) => i.url);
+        return res.json({ total: imgs.length, images: imgs });
+      }
+      return res.status(400).json({ error: 'tipo inválido' });
+    }
+
     // ============ FONTE: Manga Livre .to (Madara — sem Cloudflare) ============
     if (type === 'search') {
       // busca: pega o primeiro resultado de mangá

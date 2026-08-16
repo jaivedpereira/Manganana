@@ -415,50 +415,26 @@ async function findOnVegi(title) {
     return best;
   } catch { return null; }
 }
-/* ---------- Comick (domínio .live — SEM Cloudflare nos capítulos, funciona via servidor!) ---------- */
-// Descoberto: api.comick.dev tem Cloudflare nos capítulos, mas comick.live responde direto!
-const CK = 'https://comick.live';
-
-async function ckFetch(path) {
-  const r = await fetch(CK + path, { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile', 'Referer': 'https://comick.live/' } });
-  if (!r.ok) throw new Error('Comick ' + r.status);
-  return r.json();
-}
-
+/* ---------- Comick (agregador global — capítulos BR via proxy do Vercel) ---------- */
 async function ckSearch(q) {
-  // busca via api.comick.dev (funciona direto, sem CF na busca)
-  const r = await fetch('https://api.comick.dev/v1.0/search?q=' + encodeURIComponent(q) + '&limit=5', {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile' },
-  });
-  if (!r.ok) throw new Error('Comick search ' + r.status);
-  return r.json();
+  const r = await fetch(`/api/mlivre?src=ck&type=search&q=${encodeURIComponent(q)}`);
+  if (!r.ok) throw new Error('Comick ' + r.status);
+  const d = await r.json();
+  return d.data || [];
 }
 
 async function ckChapters(slug, lang) {
-  // capítulos via comick.live (SEM Cloudflare!) — como a extensão do Mihon faz
-  let all = [], page = 1;
-  for (;;) {
-    const d = await ckFetch(`/api/comics/${slug}/chapter-list?lang=${lang}&page=${page}`);
-    const data = d?.data || [];
-    all = all.concat(data);
-    if (!d?.hasNextPage || !data.length || page > 10) break;
-    page++;
-  }
-  return all;
+  const r = await fetch(`/api/mlivre?src=ck&type=manga&slug=${encodeURIComponent(slug)}&lang=${encodeURIComponent(lang)}`);
+  if (!r.ok) throw new Error('Comick ' + r.status);
+  const d = await r.json();
+  return d.chapters || [];
 }
 
 async function ckChapterPages(slug, hid, chap, lang) {
-  // o leitor web tem o JSON #sv-data com as imagens
-  const r = await fetch(`https://comick.live/comic/${slug}/${hid}-chapter-${chap}-${lang}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile', 'Referer': 'https://comick.live/' },
-  });
-  if (!r.ok) throw new Error('Comick reader ' + r.status);
-  const html = await r.text();
-  const m = html.match(/id="sv-data"[^>]*>([^<]+)</);
-  if (!m) throw new Error('sem sv-data');
-  const d = JSON.parse(m[1]);
-  const imgs = d?.chapter?.images || [];
-  return imgs.map((i) => i.url);
+  const r = await fetch(`/api/mlivre?src=ck&type=chapter&slug=${encodeURIComponent(slug)}&hid=${encodeURIComponent(hid)}&chap=${encodeURIComponent(chap)}&lang=${encodeURIComponent(lang)}`);
+  if (!r.ok) throw new Error('Comick ' + r.status);
+  const d = await r.json();
+  return d.images || [];
 }
 
 async function findOnCk(title) {
