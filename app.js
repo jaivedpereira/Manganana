@@ -91,6 +91,7 @@ const state = {
   pill: null,          // match no MangaPill {slug, title}
   ml: null,            // match no Manga Livre {slug, title} (capítulos BR completos)
   vegi: null,          // match na Vegitoons {id, title} (manhwas BR)
+  ck: null,            // match no Comick {slug, title} (agregador global — direto do browser)
   brExtra: null,       // capítulos BR extras do scraper {title, chapters:{num:{zip,pages,ts}}}
   reader: null,          // {manga, chapter, pages, baseUrl, hash, idx, provider}
   genres: [],            // tags do MangaDex
@@ -406,6 +407,66 @@ async function findOnVegi(title) {
     let best = null, bestScore = 0;
     for (const m of d.data) {
       const mt = (m.title || '').toLowerCase();
+      let score = 0;
+      for (const w of words) if (mt.includes(w)) score++;
+      if (score > bestScore) { bestScore = score; best = m; }
+    }
+    if (!best || bestScore < 1) return null;
+    return best;
+  } catch { return null; }
+}
+/* ---------- Comick (direto do browser — CORS aberto + IP residencial, igual o Mihon) ---------- */
+// O Comick bloqueia datacenter (Vercel) mas o browser do usuário tem IP residencial,
+// então o fetch é feito direto do dispositivo — sem servidor no meio.
+const CK = 'https://api.comick.dev';
+
+async function ckFetch(path) {
+  const r = await fetch(CK + path, { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile' } });
+  if (!r.ok) throw new Error('Comick ' + r.status);
+  return r.json();
+}
+
+async function ckSearch(q) {
+  const d = await ckFetch('/v1.0/search?q=' + encodeURIComponent(q) + '&limit=5');
+  return d || [];
+}
+
+async function ckChapters(slug, lang) {
+  // capítulos via API (paginado, como a extensão do Mihon faz)
+  let all = [], page = 1;
+  for (;;) {
+    const d = await ckFetch(`/api/comics/${slug}/chapter-list?lang=${lang}&page=${page}`);
+    const data = d?.data || [];
+    all = all.concat(data);
+    if (!d?.hasNextPage || !data.length || page > 10) break;
+    page++;
+  }
+  return all;
+}
+
+async function ckChapterPages(slug, hid, chap, lang) {
+  // o leitor web tem o JSON #sv-data com as imagens
+  const r = await fetch(`https://comick.dev/comic/${slug}/${hid}-chapter-${chap}-${lang}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile' },
+  });
+  if (!r.ok) throw new Error('Comick reader ' + r.status);
+  const html = await r.text();
+  const m = html.match(/id="sv-data"[^>]*>([^<]+)</);
+  if (!m) throw new Error('sem sv-data');
+  const d = JSON.parse(m[1]);
+  const imgs = d?.chapter?.images || [];
+  return imgs.map((i) => i.url);
+}
+
+async function findOnCk(title) {
+  try {
+    const res = await ckSearch(title.split(':')[0].trim().slice(0, 40));
+    if (!res.length) return null;
+    const t = title.toLowerCase();
+    const words = t.split(/\s+/).filter((w) => w.length > 3);
+    let best = null, bestScore = 0;
+    for (const m of res) {
+      const mt = (m.title || m.slug || '').toLowerCase();
       let score = 0;
       for (const w of words) if (mt.includes(w)) score++;
       if (score > bestScore) { bestScore = score; best = m; }
@@ -1406,6 +1467,8 @@ async function openDetail(id, silent = false) {
     try { state.ml = await findOnMl(mangaTitle(m)); } catch {}
     // tenta achar na Vegitoons (provedor BR — manhwas completos)
     try { state.vegi = await findOnVegi(mangaTitle(m)); } catch {}
+    // tenta achar no Comick (agregador global — direto do browser, IP residencial)
+    try { state.ck = await findOnCk(mangaTitle(m)); } catch {}
     // carrega capítulos do idioma ativo escolhendo a fonte mais completa
     await loadChaptersForLang('pt-br');
     // capítulos BR extras (scraper do celular → GitHub)
@@ -1531,6 +1594,10 @@ function renderDetail(m, premium, langs) {
       <div class="auto-source">
         <span class="as-badge">🇧🇷 Fonte automática: Vegitoons</span>
         <span class="as-sub">Catálogo BR (${chs.length} capítulos em português)</span>
+      </div>` : provider === 'ck' ? `
+      <div class="auto-source">
+        <span class="as-badge">🌐 Fonte automática: Comick</span>
+        <span class="as-sub">Agregador global (${chs.length} capítulos em português)</span>
       </div>` : provider === 'mangapill' ? `
       <div class="auto-source">
         <span class="as-badge">🇺🇸 Fonte automática: MangaPill</span>
@@ -1760,6 +1827,23 @@ async function loadChaptersForLang(code) {
         if (vegiChs.length > best.length) { best = vegiChs; provider = 'vegi'; }
       } catch {}
     }
+    // Comick: agregador global com pt-br (direto do browser — pode falhar em datacenter, ok)
+    if (state.ck) {
+      try {
+        const data = await ckChapters(state.ck.slug, 'pt-br');
+        const ckChs = (data || []).map((c) => ({
+          id: 'ck_' + c.hid,
+          _provider: 'ck',
+          _ckSlug: state.ck.slug,
+          _ckHid: c.hid,
+          _ckChap: c.chap,
+          attributes: {
+            chapter: String(c.chap), title: c.title || '', publishAt: null, translatedLanguage: 'pt-br',
+          },
+        }));
+        if (ckChs.length > best.length) { best = ckChs; provider = 'ck'; }
+      } catch {}
+    }
   }
 
   // 3. en: compara com MangaPill (inglês completo)
@@ -1971,6 +2055,20 @@ async function openChapter(chapterId, startPage = 0, silent = false) {
       return;
     }
 
+    // provedor Comick: páginas via leitor web (direto do browser)
+    if (ch._provider === 'ck') {
+      const imgs = await ckChapterPages(ch._ckSlug, ch._ckHid, ch._ckChap, 'pt-br');
+      if (!imgs.length) throw new Error('sem páginas');
+      const idx = Math.max(0, Math.min(startPage | 0, imgs.length - 1));
+      state.reader = {
+        manga: state.detail, chapter: ch, pages: imgs, baseUrl: '', hash: '', idx,
+        provider: 'ck',
+      };
+      renderReader();
+      if (idx > 0) restorePage(idx);
+      return;
+    }
+
     // provedor MangaDex: at-home server
     const srv = await getChapterPages(chapterId);
     const base = srv.baseUrl;
@@ -2010,8 +2108,8 @@ function renderReader() {
   $('#readerChapterName').textContent = chapterNum(r.chapter) + (chapterTitle(r.chapter) ? ' — ' + chapterTitle(r.chapter) : '');
   document.title = `${chapterNum(r.chapter)} — ${mangaTitle(r.manga)} | Manganana`;
   body.classList.toggle('rtl', state.settings.rtl);
-  // MangaPill/Manga Livre/Vegitoons: páginas já são URLs completas; MangaDex: baseUrl/hash/file
-  const urls = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi')
+  // MangaPill/Manga Livre/Vegitoons/Comick: páginas já são URLs completas; MangaDex: baseUrl/hash/file
+  const urls = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi' || r.provider === 'ck')
     ? r.pages.map((p) => px(p))
     : r.pages.map((p) => px(r.baseUrl + '/data/' + r.hash + '/' + p));
   body.innerHTML = urls.map((src, i) => readerPageHTML(src, i, mode)).join('') +
@@ -4577,7 +4675,7 @@ async function downloadChapter() {
   if (!('serviceWorker' in navigator)) { toast('Offline não disponível neste navegador'); return; }
   // px() resolve certo em cada ambiente: localhost usa URL direta,
   // produção usa /api/img (que tem o UA correto p/ MangaDex)
-  const raw = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi')
+  const raw = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi' || r.provider === 'ck')
     ? r.pages
     : r.pages.map((p) => r.baseUrl + '/data/' + r.hash + '/' + p);
   const urls = raw.map((u) => px(u));
