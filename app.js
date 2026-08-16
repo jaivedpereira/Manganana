@@ -528,7 +528,9 @@ function chapterTitle(ch) {
 }
 function timeAgo(iso) {
   if (!iso) return '';
-  const d = new Date(iso); const s = (Date.now() - d.getTime()) / 1000;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return ''; // data inválida (undefined/null/etc) → sem data
+  const s = (Date.now() - d.getTime()) / 1000;
   if (s < 60) return 'agora';
   if (s < 3600) return Math.floor(s / 60) + ' min';
   if (s < 86400) return Math.floor(s / 3600) + 'h';
@@ -1620,7 +1622,7 @@ function renderDetail(m, premium, langs) {
 
 function chapterItemHTML(c, lastRead) {
   const read = lastRead && lastRead.chapterId === c.id;
-  const group = (c.relationships ?? []).find((r) => r.type === 'scanlation_group')?.attributes?.name;
+  const group = c._group || (c.relationships ?? []).find((r) => r.type === 'scanlation_group')?.attributes?.name;
   return `
   <div class="chapter-item ${read ? 'read' : ''}" onclick="openChapter('${c.id}')">
     <div class="num">${c.attributes.chapter || '•'}</div>
@@ -1806,7 +1808,7 @@ async function loadChaptersForLang(code) {
         if (vegiChs.length > best.length) { best = vegiChs; provider = 'vegi'; }
       } catch {}
     }
-    // Comick: agregador global com pt-br (direto do browser — pode falhar em datacenter, ok)
+    // Comick: agregador global com pt-br (via proxy do Vercel)
     if (state.ck) {
       try {
         const data = await ckChapters(state.ck.slug, 'pt-br');
@@ -1815,9 +1817,10 @@ async function loadChaptersForLang(code) {
           _provider: 'ck',
           _ckSlug: state.ck.slug,
           _ckHid: c.hid,
-          _ckChap: c.chap,
+          _ckChap: c.num || c.chap,
+          _group: c.group || '',
           attributes: {
-            chapter: String(c.chap), title: c.title || '', publishAt: null, translatedLanguage: 'pt-br',
+            chapter: c.num || c.chap, title: c.title || '', publishAt: null, translatedLanguage: 'pt-br',
           },
         }));
         if (ckChs.length > best.length) { best = ckChs; provider = 'ck'; }
