@@ -195,12 +195,20 @@ def mlorg_chapters(slug):
     return out
 
 def mlorg_pages(chapter_id, legacy_id=None):
-    """Páginas via API: GET /api/v1/chapters/{id}. Tenta id e legacyId como fallback."""
+    """Páginas via API: GET /api/v1/chapters/{id}. Precisa do header X-ML-Nonce
+    (constante do site — sem ele o endpoint responde 404)."""
+    # headers obrigatórios: X-ML-Nonce + Accept-Language (documentado na extensão do Mihon)
+    hdrs = {**UA,
+            'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+            'Sec-Fetch-Site': 'same-origin',
+            'X-ML-Nonce': '7854d8e036b53cddefc539b61aa95e35'}
     for cid in [chapter_id, legacy_id]:
         if cid is None:
             continue
         try:
-            d = json.loads(get(f'{MLORG}/api/v1/chapters/{cid}'))
+            req = urllib.request.Request(f'{MLORG}/api/v1/chapters/{cid}', headers=hdrs)
+            with urllib.request.urlopen(req, timeout=40) as r:
+                d = json.loads(r.read().decode())
             pages = sorted(d.get('pages', []), key=lambda p: p.get('number', 0))
             urls = [p['imageUrl'] for p in pages if p.get('imageUrl')]
             if urls:
