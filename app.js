@@ -415,24 +415,27 @@ async function findOnVegi(title) {
     return best;
   } catch { return null; }
 }
-/* ---------- Comick (direto do browser — CORS aberto + IP residencial, igual o Mihon) ---------- */
-// O Comick bloqueia datacenter (Vercel) mas o browser do usuário tem IP residencial,
-// então o fetch é feito direto do dispositivo — sem servidor no meio.
-const CK = 'https://api.comick.dev';
+/* ---------- Comick (domínio .live — SEM Cloudflare nos capítulos, funciona via servidor!) ---------- */
+// Descoberto: api.comick.dev tem Cloudflare nos capítulos, mas comick.live responde direto!
+const CK = 'https://comick.live';
 
 async function ckFetch(path) {
-  const r = await fetch(CK + path, { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile' } });
+  const r = await fetch(CK + path, { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile', 'Referer': 'https://comick.live/' } });
   if (!r.ok) throw new Error('Comick ' + r.status);
   return r.json();
 }
 
 async function ckSearch(q) {
-  const d = await ckFetch('/v1.0/search?q=' + encodeURIComponent(q) + '&limit=5');
-  return d || [];
+  // busca via api.comick.dev (funciona direto, sem CF na busca)
+  const r = await fetch('https://api.comick.dev/v1.0/search?q=' + encodeURIComponent(q) + '&limit=5', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile' },
+  });
+  if (!r.ok) throw new Error('Comick search ' + r.status);
+  return r.json();
 }
 
 async function ckChapters(slug, lang) {
-  // capítulos via API (paginado, como a extensão do Mihon faz)
+  // capítulos via comick.live (SEM Cloudflare!) — como a extensão do Mihon faz
   let all = [], page = 1;
   for (;;) {
     const d = await ckFetch(`/api/comics/${slug}/chapter-list?lang=${lang}&page=${page}`);
@@ -446,8 +449,8 @@ async function ckChapters(slug, lang) {
 
 async function ckChapterPages(slug, hid, chap, lang) {
   // o leitor web tem o JSON #sv-data com as imagens
-  const r = await fetch(`https://comick.dev/comic/${slug}/${hid}-chapter-${chap}-${lang}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile' },
+  const r = await fetch(`https://comick.live/comic/${slug}/${hid}-chapter-${chap}-${lang}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/125.0 Mobile', 'Referer': 'https://comick.live/' },
   });
   if (!r.ok) throw new Error('Comick reader ' + r.status);
   const html = await r.text();

@@ -26,12 +26,12 @@ export default async function handler(req, res) {
   const isGo = host === 'media.gofile.io' || host.endsWith('.gofile.io');
   const isMl = host === 'mangalivre.to' || host.endsWith('.mangalivre.to');
   const isVegi = host === 'api.vegitoons.black' || host === 'cdn.vegitoons.black' || host.endsWith('.vegitoons.black');
-  const isCkImg = host === 'meo.comick.pics' || host.endsWith('.comick.pics') || host === 'scans-hot.xyz' || host.endsWith('.scans-hot.xyz');
+  const isCkImg = host === 'meo.comick.pics' || host.endsWith('.comick.pics') || host === 'scans-hot.xyz' || host.endsWith('.scans-hot.xyz') || host.endsWith('.comicknew.pictures') || host.endsWith('.comick.art');
   if (!isMD && !isAni && !isPill && !isGo && !isMl && !isVegi && !isCkImg) {
     return res.status(403).json({ error: 'Domínio não permitido' });
   }
   // cada provedor tem exigência própria de Referer
-  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : (isGo ? 'https://gofile.io/' : (isMl ? 'https://mangalivre.to/' : (isVegi ? 'https://vegitoons.black/' : (isCkImg ? 'https://comick.dev/' : 'https://mangadex.org/')))));
+  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : (isGo ? 'https://gofile.io/' : (isMl ? 'https://mangalivre.to/' : (isVegi ? 'https://vegitoons.black/' : (isCkImg ? 'https://comick.live/' : 'https://mangadex.org/')))));
 
   try {
     const r = await fetch(url, {
