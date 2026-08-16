@@ -174,7 +174,7 @@ def mlorg_search(q):
     return None
 
 def mlorg_chapters(slug):
-    """Capítulos via API: GET /api/v1/mangas/{slug}. Retorna [(num, chapter_id)]."""
+    """Capítulos via API: GET /api/v1/mangas/{slug}. Retorna [(num, chapter_id, legacy_id)]."""
     d = json.loads(get(f'{MLORG}/api/v1/mangas/{slug}'))
     chs = d.get('chapters', [])
     out = []
@@ -182,18 +182,32 @@ def mlorg_chapters(slug):
         num = str(c.get('number', ''))
         if not num:
             continue
-        out.append((num, c.get('id')))
+        # guarda id E legacyId (o endpoint de páginas pode usar um deles)
+        out.append((num, c.get('id'), c.get('legacyId')))
     def key(x):
         try: return float(x[0])
         except: return 999999
     out.sort(key=key)
+    # debug: mostra o formato do primeiro capítulo
+    if out:
+        c0 = chs[0]
+        print(f'   📦 .org: {len(out)} caps | exemplo id={c0.get("id")!r} legacyId={c0.get("legacyId")!r} number={c0.get("number")!r}')
     return out
 
-def mlorg_pages(chapter_id):
-    """Páginas via API: GET /api/v1/chapters/{id}. Retorna [urls]."""
-    d = json.loads(get(f'{MLORG}/api/v1/chapters/{chapter_id}'))
-    pages = sorted(d.get('pages', []), key=lambda p: p.get('number', 0))
-    return [p['imageUrl'] for p in pages if p.get('imageUrl')]
+def mlorg_pages(chapter_id, legacy_id=None):
+    """Páginas via API: GET /api/v1/chapters/{id}. Tenta id e legacyId como fallback."""
+    for cid in [chapter_id, legacy_id]:
+        if cid is None:
+            continue
+        try:
+            d = json.loads(get(f'{MLORG}/api/v1/chapters/{cid}'))
+            pages = sorted(d.get('pages', []), key=lambda p: p.get('number', 0))
+            urls = [p['imageUrl'] for p in pages if p.get('imageUrl')]
+            if urls:
+                return urls
+        except Exception:
+            continue
+    return []
 
 # ---------- fluxo principal ----------
 def main():
@@ -243,10 +257,13 @@ def main():
 
     total = len(caps)
     ok = 0
-    for i, (num, cap_url) in enumerate(caps, 1):
+    for i, item in enumerate(caps, 1):
+        num = item[0]
+        cap_url = item[1]
+        legacy_id = item[2] if len(item) > 2 else None
         print(f'  [{i}/{total}] Cap. {num}… ', end='', flush=True)
         try:
-            imgs = pagina_fn(cap_url)
+            imgs = pagina_fn(cap_url, legacy_id) if fonte == 'mangalivre.org' else pagina_fn(cap_url)
             if not imgs:
                 print('⚠️ sem imagens'); continue
             zdata = io.BytesIO()
