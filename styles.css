@@ -237,6 +237,10 @@ button:active svg{transform:scale(.92)}
 .char-card:hover .char-img{border-color:var(--accent);box-shadow:0 6px 14px var(--accent-soft)}
 .char-img img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block}
 .char-card strong{font-size:11px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;font-weight:700;color:var(--text)}
+/* modal de personagem — descrição limpa, sem quebras */
+#charModalBody h3{font-size:17px;font-weight:800;color:var(--text);margin-bottom:10px;letter-spacing:-0.01em}
+#charModalBody .muted{font-size:12.5px;line-height:1.65;color:#aab4d0;white-space:normal;word-break:normal;overflow-wrap:break-word;margin:0}
+#charModalBody{overflow-y:auto;padding:6px 22px 28px}
 
 /* ===== SELETOR DE IDIOMA / PROVEDOR ===== */
 .lang-row{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:none;margin-top:-2px}

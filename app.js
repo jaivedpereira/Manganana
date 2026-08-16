@@ -133,11 +133,60 @@ function scoreStars(score) {
 }
 
 function cleanAniDesc(desc) {
-  return (desc || '')
-    .replace(/__([^_]+)__/g, '$1: ')
-    .replace(/<[^>]+>/g, '')
+  // remove metadados do AniList (Height/Age/Birthday/etc) que aparecem como __Campo__: valor
+  let d = (desc || '')
+    .replace(/__([^_]+)__\s*:\s*[^A-Z]{0,50}/g, '')  // __Height__: 152 cm (4'11") ...
+    .replace(/__([^_]+)__/g, '')
+    .replace(/<[^>]+>/g, '')           // HTML
     .replace(/\s+/g, ' ')
     .trim();
+  // remove links do AniList [Nome](url)
+  d = d.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+  // se ainda sobrou prefixo de metadado sem o __...__ (ex: "Height: 152 cm"), remove
+  d = d.replace(/^(height|age|birthday|birthplace|blood type|occupation|affiliation|relatives|alias|nickname)\s*:?\s*[^A-Z]{0,50}/i, '');
+  return d.trim();
+}
+
+// cache de traduções em localStorage
+const TR_CACHE_KEY = 'trCache';
+function trCache() {
+  try { return JSON.parse(localStorage.getItem(TR_CACHE_KEY) || '{}'); } catch { return {}; }
+}
+function trCacheSave(c) {
+  try { localStorage.setItem(TR_CACHE_KEY, JSON.stringify(c)); } catch {}
+}
+
+// traduz texto EN -> PT-BR via Google Translate (grátis, sem chave), com cache
+async function translatePt(text) {
+  if (!text || text.length < 12) return text;
+  const c = trCache();
+  const key = text.slice(0, 60);
+  if (c[key]) return c[key];
+  try {
+    const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=' + encodeURIComponent(text.slice(0, 1800)));
+    if (!r.ok) return text;
+    const d = await r.json();
+    const out = (d?.[0] || []).map((s) => s?.[0] || '').join('');
+    if (out) {
+      c[key] = out;
+      trCacheSave(c);
+      return out;
+    }
+  } catch {}
+  return text;
+}
+
+// traduz descrições dos personagens em lote (com cache por personagem)
+async function translateCharDesc(c) {
+  const cKey = 'tr_' + c.id;
+  const cache = trCache();
+  if (cache[cKey]) return cache[cKey];
+  const clean = cleanAniDesc(c.description);
+  if (clean.length < 12) return clean;
+  const pt = await translatePt(clean);
+  cache[cKey] = pt;
+  trCacheSave(cache);
+  return pt;
 }
 
 function anilistStatusPt(status) {
@@ -1609,11 +1658,26 @@ function toggleFav() {
 // modal de personagem (detalhe premium)
 function openCharModal(name, desc) {
   const body = $('#charModalBody');
+  const clean = cleanAniDesc(desc);
   body.innerHTML = `
     <h3>${esc(name)}</h3>
-    <p class="muted">${desc ? esc(desc) : 'Sem descrição disponível.'}</p>`;
+    <p class="muted">${clean ? esc(clean) : 'Sem descrição disponível.'}</p>
+    <p class="muted char-tr" style="font-size:11px;color:var(--accent);margin-top:8px">🌐 Traduzindo para português…</p>`;
   $('#charModal').classList.add('open');
   $('#sheetBackdrop').classList.add('open');
+  // traduz para pt-br (com cache) e atualiza quando pronto
+  if (clean && clean.length >= 12) {
+    translatePt(clean).then((pt) => {
+      if (pt && pt !== clean) {
+        body.querySelector('.muted').textContent = pt;
+      }
+      const tr = body.querySelector('.char-tr');
+      if (tr) tr.remove();
+    });
+  } else {
+    const tr = body.querySelector('.char-tr');
+    if (tr) tr.remove();
+  }
 }
 function closeCharModal() {
   $('#charModal').classList.remove('open');
