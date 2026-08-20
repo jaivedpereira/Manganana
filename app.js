@@ -492,11 +492,13 @@ function mangaDesc(m) {
   return s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 }
 function mangaCover(m) {
+  if (m?._cover) return m._cover; // fonte externa (Comick/Vegitoons) já traz a capa
   const rel = (m?.relationships ?? []).find((r) => r.type === 'cover_art');
   const fn = rel?.attributes?.fileName;
   return fn ? px(`${CDN}/covers/${m.id}/${fn}.256.jpg`) : '';
 }
 function mangaCoverFull(m) {
+  if (m?._cover) return m._cover; // fonte externa (Comick/Vegitoons) já traz a capa
   const rel = (m?.relationships ?? []).find((r) => r.type === 'cover_art');
   const fn = rel?.attributes?.fileName;
   return fn ? px(`${CDN}/covers/${m.id}/${fn}.512.jpg`) : '';
@@ -621,6 +623,7 @@ function cardHTML(m, faved) {
   const cover = mangaCover(m);
   const year = mangaYear(m);
   const sub = [year].filter(Boolean).join(' · ') || mangaTags(m)[0] || '';
+  const srcBadge = m._src ? `<span class="src-badge" style="background:${m._srcColor}">${esc(m._src)}</span>` : '';
   // justificativa da recomendação (só quando o algoritmo define m._recReason)
   const reason = m._recReason
     ? `<div class="rec-reason">🎯 Porque você gosta de <b>${esc(m._recReason)}</b></div>`
@@ -629,6 +632,7 @@ function cardHTML(m, faved) {
   <article class="manga-card" data-id="${m.id}" onclick="openDetail('${m.id}')">
     <div class="cover">
       ${coverImg(cover, title)}
+      ${srcBadge}
       ${faved ? '<span class="tag"><svg class="tag-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>FAV</span>' : ''}
     </div>
     <h3>${esc(title)}</h3>
@@ -643,10 +647,12 @@ function rowHTML(m, faved) {
   const cover = mangaCover(m);
   const year = mangaYear(m);
   const tags = mangaTags(m);
+  const srcBadge = m._src ? `<span class="src-badge" style="background:${m._srcColor}">${esc(m._src)}</span>` : '';
   return `
   <article class="manga-row" data-id="${m.id}" onclick="openDetail('${m.id}')">
     <div class="rcover">
       ${coverImg(cover, title)}
+      ${srcBadge}
       ${faved ? '<span class="rtag"><svg class="tag-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>' : ''}
     </div>
     <div class="rinfo">
@@ -1207,22 +1213,30 @@ async function loadExplore() {
   const loadBtn = $('#loadMoreBtn');
   loadBtn.textContent = 'Carregando…';
   try {
-    const list = await searchManga({
-      query: state.explore.query,
-      genre: state.explore.genre,
-      offset: state.explore.offset,
-      limit: 24,
-      status: state.filters.status,
-      year: state.filters.year,
-      sort: state.filters.sort,
-    });
+    let list;
+    if (state.explore.query && !state.explore.offset) {
+      // BUSCA AGREGADA: consulta TODAS as fontes em paralelo e mescla (catálogo completo)
+      list = await searchAllSources(state.explore.query);
+      state.explore._agg = true; // marca que veio do agregador (sem paginação infinita)
+    } else {
+      list = await searchManga({
+        query: state.explore.query,
+        genre: state.explore.genre,
+        offset: state.explore.offset,
+        limit: 24,
+        status: state.filters.status,
+        year: state.filters.year,
+        sort: state.filters.sort,
+      });
+      state.explore._agg = false;
+    }
     if (!list.length && state.explore.offset === 0) {
       grid.innerHTML = '<div style="grid-column:1/-1">' + emptyState('🔍', 'Nenhum mangá encontrado', 'Tente outro nome ou ajuste os filtros.') + '</div>';
       loadBtn.style.display = 'none';
     } else {
       grid.insertAdjacentHTML('beforeend', list.map((m) => rowHTML(m, state.favs.some((f) => f.id === m.id))).join(''));
       state.explore.offset += list.length;
-      loadBtn.style.display = list.length < 24 ? 'none' : 'block';
+      loadBtn.style.display = (state.explore._agg || list.length < 24) ? 'none' : 'block';
       loadBtn.textContent = 'Carregar mais ↓';
     }
   } catch (e) {
@@ -1230,6 +1244,77 @@ async function loadExplore() {
     loadBtn.textContent = 'Carregar mais ↓';
   }
   state.explore.loading = false;
+}
+
+// busca em TODAS as fontes (MangaDex + Comick + Vegitoons + Manga Livre .to) e mescla
+async function searchAllSources(q) {
+  const out = [];
+  const seen = new Set();
+
+  // normaliza pro compare: minúsculo sem acento
+  const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // 1. MangaDex (busca oficial + cover art incluído)
+  try {
+    const md = await searchManga({ query: q, limit: 12, lang: 'pt-br' });
+    for (const m of md) {
+      const t = norm(mangaTitle(m));
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      m._src = 'MangaDex';
+      m._srcColor = '#7a5fc7';
+      out.push(m);
+    }
+  } catch {}
+
+  // 2. Comick (agregador global — pega quase TUDO, inclusive BR)
+  try {
+    const ck = await ckSearch(q);
+    for (const c of ck) {
+      const t = norm(c.title);
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      out.push({
+        id: 'ck:' + c.slug, _src: 'Comick', _srcColor: '#d4a94e', _ckSlug: c.slug,
+        attributes: { title: { en: c.title, 'pt-br': c.title } },
+        relationships: [],
+      });    }
+  } catch {}
+
+  // 3. Vegitoons (catálogo BR de manhwas)
+  try {
+    const vgRes = await vegiSearch(q);
+    const vg = vgRes.data || vgRes || [];
+    for (const v of vg) {
+      const t = norm(v.title);
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      const m = {
+        id: 'vegi:' + v.id, _src: 'Vegitoons', _srcColor: '#3d9c6a', _vegiId: String(v.id),
+        attributes: { title: { en: v.title, 'pt-br': v.title } },
+        relationships: [],
+      };
+      if (v.cover) m._cover = v.cover;
+      out.push(m);
+    }
+  } catch {}
+
+  // 4. Manga Livre .to (obras clássicas BR)
+  try {
+    const ml = await mlSearch(q);
+    for (const c of ml) {
+      const t = norm(c.title);
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      out.push({
+        id: 'ml:' + c.slug, _src: 'Manga Livre', _srcColor: '#4a7fc1', _mlSlug: c.slug,
+        attributes: { title: { en: c.title, 'pt-br': c.title } },
+        relationships: [],
+      });
+    }
+  } catch {}
+
+  return out;
 }
 
 /* ---------- histórico de busca ---------- */
@@ -1426,7 +1511,38 @@ async function openDetail(id, silent = false) {
   $('#detailContent').innerHTML = '<div style="padding:120px 0;text-align:center;color:var(--muted)"><div class="spinner" style="margin:0 auto 14px"></div>Carregando…</div>';
   $('#bottomNav').classList.add('hidden');
   try {
-    const m = await getManga(id);
+    let m;
+    // IDs de fonte externa (busca agregada): ck:slug | vegi:id | ml:slug
+    if (id.startsWith('ck:')) {
+      const slug = id.slice(3);
+      const q = slug.replace(/-/g, ' ');
+      const res = await ckSearch(q);
+      const found = res.find((x) => x.slug === slug) || res[0];
+      m = {
+        id, _src: 'Comick', _ckSlug: slug,
+        attributes: { title: { en: found?.title || q, 'pt-br': found?.title || q } },
+        relationships: [],
+      };
+    } else if (id.startsWith('vegi:')) {
+      const vid = id.slice(5);
+      m = {
+        id, _src: 'Vegitoons', _vegiId: vid,
+        attributes: { title: { en: 'Mangá', 'pt-br': 'Mangá' } },
+        relationships: [],
+      };
+      try { const v = await vegiManga(vid); if (v?.obr_nome) m.attributes = { title: { en: v.obr_nome, 'pt-br': v.obr_nome } }; } catch {}
+    } else if (id.startsWith('ml:')) {
+      const slug = id.slice(3);
+      m = {
+        id, _src: 'Manga Livre', _mlSlug: slug,
+        attributes: { title: { en: slug.replace(/-/g, ' '), 'pt-br': slug.replace(/-/g, ' ') } },
+        relationships: [],
+      };
+      try { const d = await mlManga(slug); if (d?.title) m.attributes = { title: { en: d.title, 'pt-br': d.title } }; } catch {}
+    } else {
+      m = await getManga(id);
+    }
+    if (!m || !Object.keys(m).length) throw new Error('mangá não encontrado');
     state.detail = m;
     document.title = mangaTitle(m) + ' | Manganana';
     state.lang = 'pt-br';
@@ -1442,14 +1558,18 @@ async function openDetail(id, silent = false) {
     // busca idiomas disponíveis (paralelo, não bloqueia)
     let langs = [{ code: 'pt-br', count: 0 }];
     try { const l = await mangaLanguages(id); if (l.length) langs = l; } catch {}
+    // abriu direto de fonte externa (busca agregada): já sabemos onde o mangá está
+    if (m._src === 'Comick') state.ck = { slug: m._ckSlug, title: mangaTitle(m) };
+    if (m._src === 'Vegitoons') state.vegi = { id: m._vegiId, title: mangaTitle(m) };
+    if (m._src === 'Manga Livre') state.ml = { slug: m._mlSlug, title: mangaTitle(m) };
     // tenta achar no MangaPill (provedor secundário)
     try { state.pill = await findOnPill(mangaTitle(m)); } catch {}
     // tenta achar no Manga Livre (provedor BR — capítulos completos em pt-br)
-    try { state.ml = await findOnMl(mangaTitle(m)); } catch {}
+    if (!state.ml) try { state.ml = await findOnMl(mangaTitle(m)); } catch {}
     // tenta achar na Vegitoons (provedor BR — manhwas completos)
-    try { state.vegi = await findOnVegi(mangaTitle(m)); } catch {}
+    if (!state.vegi) try { state.vegi = await findOnVegi(mangaTitle(m)); } catch {}
     // tenta achar no Comick (agregador global — direto do browser, IP residencial)
-    try { state.ck = await findOnCk(mangaTitle(m)); } catch {}
+    if (!state.ck) try { state.ck = await findOnCk(mangaTitle(m)); } catch {}
     // carrega capítulos do idioma ativo escolhendo a fonte mais completa
     await loadChaptersForLang('pt-br');
     // capítulos BR extras (scraper do celular → GitHub)
@@ -1512,6 +1632,7 @@ function renderDetail(m, premium, langs) {
     </div>
     <div class="detail-info">
       <h1>${esc(mangaTitle(m))}</h1>
+      ${m._src ? `<div class="src-row"><span class="detail-src-badge"><span class="dot" style="background:${m._srcColor || '#d4a94e'}"></span>Disponível em ${esc(m._src)}</span></div>` : ''}
       ${mangaAltTitles(m) ? `<div class="authors">${esc(mangaAltTitles(m))}</div>` : ''}
       ${mangaAuthors(m) ? `<div class="authors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-icon" style="color:var(--muted);width:11px;height:11px;margin-right:4px;"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>${esc(mangaAuthors(m))}</div>` : ''}
       ${(score != null || pop || statusPt || totalCaps) ? `
@@ -5073,7 +5194,16 @@ function bindRipple() {
     bindToTop();
     bindPullRefresh();
     bindRipple();
-    await renderHome();
+    // SPLASH: some assim que a home termina de renderizar (sem espera fixa)
+    await renderHome().then(() => {
+      const splash = $('#splash');
+      if (splash) splash.classList.add('hidden');
+    });
+    // fallback: nunca deixa o splash preso na tela
+    setTimeout(() => {
+      const splash = $('#splash');
+      if (splash) splash.classList.add('hidden');
+    }, 2500);
     renderLibrary();
     renderProfile();
     registerSW();
