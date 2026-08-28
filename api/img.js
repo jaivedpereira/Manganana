@@ -27,11 +27,15 @@ export default async function handler(req, res) {
   const isMl = host === 'mangalivre.to' || host.endsWith('.mangalivre.to');
   const isVegi = host === 'api.vegitoons.black' || host === 'cdn.vegitoons.black' || host.endsWith('.vegitoons.black');
   const isCkImg = host === 'meo.comick.pics' || host.endsWith('.comick.pics') || host === 'scans-hot.xyz' || host.endsWith('.scans-hot.xyz') || host.endsWith('.comicknew.pictures') || host.endsWith('.comick.art');
-  if (!isMD && !isAni && !isPill && !isGo && !isMl && !isVegi && !isCkImg) {
+  // domínios dos sites Madara BR (Fenix, Ghost, Nebulosa, Geass, Hiper, Osaka, etc.)
+  const MADARA_IMGS = ['fenixproject.site', 'ghostscan.xyz', 'nebulosascan.com', 'geasscomics.xyz', 'hipertoon.com', 'ninjacomics.xyz', 'montetaiscanlator.xyz', 'osakascan.com', 'nocfsb.com', 'tiamanhwa.com', 'flowermangas.net', 'tiraninha.world', 'mangalivre.blog'];
+  const isMad = MADARA_IMGS.some((d) => host === d || host.endsWith('.' + d));
+  if (!isMD && !isAni && !isPill && !isGo && !isMl && !isVegi && !isCkImg && !isMad) {
     return res.status(403).json({ error: 'Domínio não permitido' });
   }
   // cada provedor tem exigência própria de Referer
-  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : (isGo ? 'https://gofile.io/' : (isMl ? 'https://mangalivre.to/' : (isVegi ? 'https://vegitoons.black/' : (isCkImg ? 'https://comick.live/' : 'https://mangadex.org/')))));
+  const refSite = isMad ? (MADARA_IMGS.find((d) => host === d || host.endsWith('.' + d))) : 'mangalivre.to';
+  const referer = isPill ? 'https://mangapill.com/' : (isAni ? 'https://anilist.co/' : (isGo ? 'https://gofile.io/' : (isMl ? 'https://mangalivre.to/' : (isVegi ? 'https://vegitoons.black/' : (isCkImg ? 'https://comick.live/' : (isMad ? ('https://' + refSite + '/') : 'https://mangadex.org/'))))));
 
   try {
     const r = await fetch(url, {

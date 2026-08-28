@@ -348,6 +348,19 @@ async function mlManga(slug) {
   return r.json();
 }
 
+// fontes Madara parametrizadas (Vegitoons/Manga Livre usam outros padrões)
+async function mlMangaMadara(site, slug) {
+  const r = await fetch(`/api/mlivre?src=madara:${site}&type=manga&slug=${encodeURIComponent(slug)}`);
+  if (!r.ok) throw new Error('Madara ' + r.status);
+  return r.json();
+}
+async function madaraChapterPages(site, capUrl) {
+  const r = await fetch(`/api/mlivre?src=madara:${site}&type=chapter&url=${encodeURIComponent(capUrl)}`);
+  if (!r.ok) throw new Error('Madara ' + r.status);
+  const d = await r.json();
+  return d.images || [];
+}
+
 async function mlChapterPages(capUrl) {
   const url = ML_URL.startsWith('http')
     ? capUrl
@@ -1286,7 +1299,8 @@ async function loadSourceCatalog(src) {
     let data, url;
     if (src === 'vegi') url = `/api/mlivre?src=vegi&type=list&page=${srcCatPage}`;
     else if (src === 'ml') url = `/api/mlivre?src=to&type=list&page=${srcCatPage}`;
-    else if (src === 'ck') url = `/api/mlivre?src=ck&type=search&q=a&limit=40`; // Comick não tem listagem simples; usa trending
+    else if (src === 'ck') url = `/api/mlivre?src=ck&type=search&q=a&limit=40`;
+    else if (src.startsWith('madara:')) url = `/api/mlivre?src=${src}&type=list&page=${srcCatPage}`;
     if (url) {
       const r = await fetch(url);
       const d = await r.json();
@@ -1294,19 +1308,30 @@ async function loadSourceCatalog(src) {
       srcCatHasNext = d.hasNext || false;
     }
     if (srcCatPage === 1) {
-      document.title = { vegi: 'Vegitoons', ml: 'Manga Livre', ck: 'Comick' }[src] + ' | Manganana';
+      const nomes = { vegi: 'Vegitoons', ml: 'Manga Livre', ck: 'Comick',
+        'madara:fenix': 'Fenix', 'madara:ghost': 'Ghost', 'madara:nebulosa': 'Nebulosa',
+        'madara:geass': 'Geass', 'madara:hiper': 'Hiper', 'madara:tia': 'Tia', 'madara:montetai': 'Montetai', 'madara:nocturne': 'Nocturne' };
+      document.title = (nomes[src] || src) + ' | Manganana';
       grid.innerHTML = '';
-      // pequeno cabeçalho de catálogo
-      const total = { vegi: '4.500+ obras BR', ml: 'obras clássicas', ck: 'agregador global' }[src];
+      const total = { vegi: '4.500+ obras BR', ml: 'obras clássicas', ck: 'agregador global' }[src] || 'catálogo BR';
       grid.insertAdjacentHTML('afterbegin',
         `<div class="src-cat-head" style="grid-column:1/-1;text-align:center;padding:6px 0 14px;color:var(--muted);font-size:13px">` +
-        `📚 Catálogo ${src === 'vegi' ? 'Vegitoons' : src === 'ml' ? 'Manga Livre' : 'Comick'} · ${total} — toque para abrir</div>`);
+        `📚 Catálogo ${nomes[src] || src} · ${total} — toque para abrir</div>`);
     }
-    const list = data.map((m, i) => {
-      const id = src === 'vegi' ? 'vegi:' + m.id : src === 'ml' ? 'ml:' + m.slug : 'ck:' + m.slug;
+    const list = data.map((m) => {
+      let id;
+      if (src === 'vegi') id = 'vegi:' + m.id;
+      else if (src === 'ml') id = 'ml:' + m.slug;
+      else if (src === 'ck') id = 'ck:' + m.slug;
+      else if (src.startsWith('madara:')) id = src + ':' + m.slug; // madara:site:slug
+      const lbl = { vegi: 'Vegitoons', ml: 'Manga Livre', ck: 'Comick',
+        'madara:fenix': 'Fenix', 'madara:ghost': 'Ghost', 'madara:nebulosa': 'Nebulosa',
+        'madara:geass': 'Geass', 'madara:hiper': 'Hiper' }[src] || src;
+      const col = { vegi: '#3d9c6a', ml: '#4a7fc1', ck: '#d4a94e',
+        'madara:fenix': '#7a5fc7', 'madara:ghost': '#3d9c6a', 'madara:nebulosa': '#c0504d',
+        'madara:geass': '#4a7fc1', 'madara:hiper': '#d4a94e' }[src] || '#7a5fc7';
       return {
-        id, _src: src === 'vegi' ? 'Vegitoons' : src === 'ml' ? 'Manga Livre' : 'Comick',
-        _srcColor: src === 'vegi' ? '#3d9c6a' : src === 'ml' ? '#4a7fc1' : '#d4a94e',
+        id, _src: lbl, _srcColor: col, _madaraSite: src.startsWith('madara:') ? src.slice(7) : '',
         attributes: { title: { en: m.title, 'pt-br': m.title } },
         relationships: [], _cover: m.cover,
       };
@@ -1605,6 +1630,16 @@ async function openDetail(id, silent = false) {
         relationships: [],
       };
       try { const v = await vegiManga(vid); if (v?.obr_nome) m.attributes = { title: { en: v.obr_nome, 'pt-br': v.obr_nome } }; } catch {}
+    } else if (id.startsWith('madara:')) {
+      // madara:<site>:<slug> — fonte Madara parametrizada
+      const parts = id.slice(7).split(':');
+      const msite = parts[0], mslug = parts.slice(1).join(':');
+      m = {
+        id, _src: msite, _srcColor: '#7a5fc7', _madaraSite: msite, _madaraSlug: mslug,
+        attributes: { title: { en: mslug.replace(/-/g, ' '), 'pt-br': mslug.replace(/-/g, ' ') } },
+        relationships: [],
+      };
+      try { const d = await mlMangaMadara(msite, mslug); if (d?.title) m.attributes = { title: { en: d.title, 'pt-br': d.title } }; } catch {}
     } else if (id.startsWith('ml:')) {
       const slug = id.slice(3);
       m = {
@@ -1625,6 +1660,9 @@ async function openDetail(id, silent = false) {
     state.autoProvider = {};
     state.pill = null;
     state.ml = null;
+    state.madara = null;
+    state.vegi = null;
+    state.ck = null;
     // busca dados premium (AniList) em paralelo — não bloqueia se falhar
     let premium = null;
     try { premium = await fetchAniList(mangaTitle(m)); } catch {}
@@ -1636,6 +1674,7 @@ async function openDetail(id, silent = false) {
     if (m._src === 'Comick') state.ck = { slug: m._ckSlug, title: mangaTitle(m) };
     if (m._src === 'Vegitoons') state.vegi = { id: m._vegiId, title: mangaTitle(m) };
     if (m._src === 'Manga Livre') state.ml = { slug: m._mlSlug, title: mangaTitle(m) };
+    if (m._madaraSite) state.madara = { site: m._madaraSite, slug: m._madaraSlug, title: mangaTitle(m) };
     // tenta achar no MangaPill (provedor secundário)
     try { state.pill = await findOnPill(mangaTitle(m)); } catch {}
     // tenta achar no Manga Livre (provedor BR — capítulos completos em pt-br)
@@ -2021,6 +2060,22 @@ async function loadChaptersForLang(code) {
         if (ckChs.length > best.length) { best = ckChs; provider = 'ck'; }
       } catch {}
     }
+    // Fonte Madara parametrizada (abriu via catálogo madara:)
+    if (state.madara) {
+      try {
+        const data = await mlMangaMadara(state.madara.site, state.madara.slug);
+        const mdChs = (data.chapters || []).map((c) => ({
+          id: 'mdr_' + c.url,
+          _provider: 'madara',
+          _madaraSite: state.madara.site,
+          _madaraUrl: c.url,
+          attributes: {
+            chapter: c.num, title: '', publishAt: null, translatedLanguage: 'pt-br',
+          },
+        }));
+        if (mdChs.length > best.length) { best = mdChs; provider = 'madara'; }
+      } catch {}
+    }
   }
 
   // 3. en: compara com MangaPill (inglês completo)
@@ -2232,6 +2287,20 @@ async function openChapter(chapterId, startPage = 0, silent = false) {
       return;
     }
 
+    // provedor Madara (site BR parametrizado): busca as páginas via proxy
+    if (ch._provider === 'madara') {
+      const imgs = await madaraChapterPages(ch._madaraSite, ch._madaraUrl);
+      if (!imgs.length) throw new Error('sem páginas');
+      const idx = Math.max(0, Math.min(startPage | 0, imgs.length - 1));
+      state.reader = {
+        manga: state.detail, chapter: ch, pages: imgs, baseUrl: '', hash: '', idx,
+        provider: 'madara',
+      };
+      renderReader();
+      if (idx > 0) restorePage(idx);
+      return;
+    }
+
     // provedor Comick: páginas via leitor web (direto do browser)
     if (ch._provider === 'ck') {
       const imgs = await ckChapterPages(ch._ckSlug, ch._ckHid, ch._ckChap, 'pt-br');
@@ -2286,7 +2355,7 @@ function renderReader() {
   document.title = `${chapterNum(r.chapter)} — ${mangaTitle(r.manga)} | Manganana`;
   body.classList.toggle('rtl', state.settings.rtl);
   // MangaPill/Manga Livre/Vegitoons/Comick: páginas já são URLs completas; MangaDex: baseUrl/hash/file
-  const urls = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi' || r.provider === 'ck')
+  const urls = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi' || r.provider === 'ck' || r.provider === 'madara')
     ? r.pages.map((p) => px(p))
     : r.pages.map((p) => px(r.baseUrl + '/data/' + r.hash + '/' + p));
   body.innerHTML = urls.map((src, i) => readerPageHTML(src, i, mode)).join('') +
@@ -4852,7 +4921,7 @@ async function downloadChapter() {
   if (!('serviceWorker' in navigator)) { toast('Offline não disponível neste navegador'); return; }
   // px() resolve certo em cada ambiente: localhost usa URL direta,
   // produção usa /api/img (que tem o UA correto p/ MangaDex)
-  const raw = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi' || r.provider === 'ck')
+  const raw = (r.provider === 'mangapill' || r.provider === 'mlivre' || r.provider === 'vegi' || r.provider === 'ck' || r.provider === 'madara')
     ? r.pages
     : r.pages.map((p) => r.baseUrl + '/data/' + r.hash + '/' + p);
   const urls = raw.map((u) => px(u));
