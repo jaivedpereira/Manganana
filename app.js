@@ -1607,7 +1607,7 @@ async function openDetail(id, silent = false) {
   clearNewFlag(id);
   document.title = 'Manganana';
   $('#view-detail').querySelector('.content').scrollTop = 0;
-  $('#detailContent').innerHTML = '<div style="padding:120px 0;text-align:center;color:var(--muted)"><div class="spinner" style="margin:0 auto 14px"></div>Carregando…</div>';
+  $('#detailContent').innerHTML = `<div class="detail-loading" style="padding:20px 0"><div class="sk-card" style="width:100%;height:340px;border-radius:var(--radius-lg);overflow:hidden"><div class="sk-cover" style="width:100%;height:100%"></div></div><div style="height:18px;width:70%;margin:18px 0 12px;border-radius:8px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 50%,var(--panel) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite"></div><div style="height:14px;width:45%;border-radius:6px;background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 50%,var(--panel) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite"></div></div>`;
   $('#bottomNav').classList.add('hidden');
   try {
     let m;
@@ -1634,8 +1634,10 @@ async function openDetail(id, silent = false) {
       // madara:<site>:<slug> — fonte Madara parametrizada
       const parts = id.slice(7).split(':');
       const msite = parts[0], mslug = parts.slice(1).join(':');
+      const MAD_LBL = { fenix: 'Fenix', ghost: 'Ghost', nebulosa: 'Nebulosa', geass: 'Geass', hiper: 'Hiper', mangalivre: 'Manga Livre', tia: 'Tia', montetai: 'Montetai', nocturne: 'Nocturne' };
+      const MAD_COL = { fenix: '#7a5fc7', ghost: '#3d9c6a', nebulosa: '#c0504d', geass: '#4a7fc1', hiper: '#d4a94e', tia: '#c0504d', montetai: '#7a5fc7', nocturne: '#d4a94e' };
       m = {
-        id, _src: msite, _srcColor: '#7a5fc7', _madaraSite: msite, _madaraSlug: mslug,
+        id, _src: MAD_LBL[msite] || msite, _srcColor: MAD_COL[msite] || '#7a5fc7', _madaraSite: msite, _madaraSlug: mslug,
         attributes: { title: { en: mslug.replace(/-/g, ' '), 'pt-br': mslug.replace(/-/g, ' ') } },
         relationships: [],
       };
@@ -1667,9 +1669,9 @@ async function openDetail(id, silent = false) {
     let premium = null;
     try { premium = await fetchAniList(mangaTitle(m)); } catch {}
     state.premium = premium;
-    // busca idiomas disponíveis (paralelo, não bloqueia)
+    // busca idiomas disponíveis (paralelo, não bloqueia) — pula p/ fontes externas
     let langs = [{ code: 'pt-br', count: 0 }];
-    try { const l = await mangaLanguages(id); if (l.length) langs = l; } catch {}
+    if (!m._madaraSite && !m._src) { try { const l = await mangaLanguages(id); if (l.length) langs = l; } catch {} }
     // abriu direto de fonte externa (busca agregada): já sabemos onde o mangá está
     if (m._src === 'Comick') state.ck = { slug: m._ckSlug, title: mangaTitle(m) };
     if (m._src === 'Vegitoons') state.vegi = { id: m._vegiId, title: mangaTitle(m) };
@@ -1813,6 +1815,10 @@ function renderDetail(m, premium, langs) {
       <div class="auto-source">
         <span class="as-badge">🌐 Fonte automática: Comick</span>
         <span class="as-sub">Agregador global (${chs.length} capítulos em português)</span>
+      </div>` : provider === 'madara' ? `
+      <div class="auto-source">
+        <span class="as-badge">🇧🇷 Fonte automática: ${state.madara ? (state.madara.site ? (state.madara.site.charAt(0).toUpperCase() + state.madara.site.slice(1)) : 'Madara') : 'Madara'}</span>
+        <span class="as-sub">Catálogo BR (${chs.length} capítulos em português)</span>
       </div>` : provider === 'mangapill' ? `
       <div class="auto-source">
         <span class="as-badge">🇺🇸 Fonte automática: MangaPill</span>
@@ -5251,11 +5257,26 @@ function scrollTopHome() {
 function bindToTop() {
   const btn = $('#toTopBtn');
   if (!btn) return;
-  const content = $('#view-home').querySelector('.content');
-  if (!content) return;
-  content.addEventListener('scroll', () => {
-    btn.classList.toggle('show', content.scrollTop > 600);
-  }, { passive: true });
+  // observa o scroll da view ativa (qualquer tela com .content)
+  const checkScroll = (content) => {
+    btn.classList.toggle('show', content.scrollTop > 500);
+  };
+  document.querySelectorAll('.view .content').forEach((content) => {
+    content.addEventListener('scroll', () => checkScroll(content), { passive: true });
+  });
+  // ao trocar de view ativa, esconde o botão se a nova não rolou
+  const obs = new MutationObserver(() => {
+    const active = document.querySelector('.view.active .content');
+    if (active) checkScroll(active);
+  });
+  obs.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+}
+
+// volta ao topo da view ativa
+function scrollTopHome() {
+  const active = document.querySelector('.view.active .content');
+  if (active) active.scrollTo({ top: 0, behavior: 'smooth' });
+  const btn = $('#toTopBtn'); if (btn) setTimeout(() => btn.classList.remove('show'), 400);
 }
 
 /* ---------- pull-to-refresh (home) ---------- */
