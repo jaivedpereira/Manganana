@@ -1201,7 +1201,28 @@ async function initExplore() {
     renderSearchHistory();
     loadExplore();
   });
-  $('#loadMoreBtn').addEventListener('click', loadExplore);
+  $('#loadMoreBtn').addEventListener('click', () => {
+    if (srcCat) { srcCatPage++; loadSourceCatalog(srcCat); }
+    else loadExplore();
+  });
+  // chips de catálogos completos (por fonte)
+  $('#srcCats').addEventListener('click', (e) => {
+    const b = e.target.closest('.src-cat-chip');
+    if (!b) return;
+    $$('.src-cat-chip', $('#srcCats')).forEach((x) => x.classList.remove('active'));
+    b.classList.add('active');
+    if (srcCat === b.dataset.cat) { // clicou no ativo → sair
+      srcCat = ''; srcCatPage = 1; b.classList.remove('active');
+      $('#searchInput').value = ''; state.explore.query = '';
+      state.explore.offset = 0; $('#exploreGrid').innerHTML = '';
+      return loadExplore();
+    }
+    srcCat = b.dataset.cat; srcCatPage = 1;
+    $('#chips').value = ''; // limpa busca visual
+    if ($('#searchInput')) $('#searchInput').value = '';
+    state.explore.query = '';
+    loadSourceCatalog(srcCat);
+  });
 }
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
@@ -1244,6 +1265,59 @@ async function loadExplore() {
     loadBtn.textContent = 'Carregar mais ↓';
   }
   state.explore.loading = false;
+}
+
+// ---------- navegação do catálogo por fonte (chips "Catálogos completos") ----------
+let srcCat = '';       // categoria ativa: vegi | ml | ck | ''
+let srcCatPage = 1;
+let srcCatHasNext = false;
+
+async function loadSourceCatalog(src) {
+  const grid = $('#exploreGrid');
+  const loadBtn = $('#loadMoreBtn');
+  srcCat = src;
+  try {
+    if (!src) { // voltou pro normal
+      state.explore.offset = 0;
+      return loadExplore();
+    }
+    loadBtn.textContent = 'Carregando catálogo…';
+    loadBtn.style.display = 'block';
+    let data, url;
+    if (src === 'vegi') url = `/api/mlivre?src=vegi&type=list&page=${srcCatPage}`;
+    else if (src === 'ml') url = `/api/mlivre?src=to&type=list&page=${srcCatPage}`;
+    else if (src === 'ck') url = `/api/mlivre?src=ck&type=search&q=a&limit=40`; // Comick não tem listagem simples; usa trending
+    if (url) {
+      const r = await fetch(url);
+      const d = await r.json();
+      data = d.data || [];
+      srcCatHasNext = d.hasNext || false;
+    }
+    if (srcCatPage === 1) {
+      document.title = { vegi: 'Vegitoons', ml: 'Manga Livre', ck: 'Comick' }[src] + ' | Manganana';
+      grid.innerHTML = '';
+      // pequeno cabeçalho de catálogo
+      const total = { vegi: '4.500+ obras BR', ml: 'obras clássicas', ck: 'agregador global' }[src];
+      grid.insertAdjacentHTML('afterbegin',
+        `<div class="src-cat-head" style="grid-column:1/-1;text-align:center;padding:6px 0 14px;color:var(--muted);font-size:13px">` +
+        `📚 Catálogo ${src === 'vegi' ? 'Vegitoons' : src === 'ml' ? 'Manga Livre' : 'Comick'} · ${total} — toque para abrir</div>`);
+    }
+    const list = data.map((m, i) => {
+      const id = src === 'vegi' ? 'vegi:' + m.id : src === 'ml' ? 'ml:' + m.slug : 'ck:' + m.slug;
+      return {
+        id, _src: src === 'vegi' ? 'Vegitoons' : src === 'ml' ? 'Manga Livre' : 'Comick',
+        _srcColor: src === 'vegi' ? '#3d9c6a' : src === 'ml' ? '#4a7fc1' : '#d4a94e',
+        attributes: { title: { en: m.title, 'pt-br': m.title } },
+        relationships: [], _cover: m.cover,
+      };
+    });
+    grid.insertAdjacentHTML('beforeend', list.map((m) => rowHTML(m, false)).join(''));
+    loadBtn.style.display = srcCatHasNext ? 'block' : 'none';
+    loadBtn.textContent = 'Carregar mais ↓';
+  } catch (e) {
+    toast('Erro: ' + e.message);
+    loadBtn.style.display = 'none';
+  }
 }
 
 // busca em TODAS as fontes (MangaDex + Comick + Vegitoons + Manga Livre .to) e mescla

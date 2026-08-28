@@ -28,7 +28,18 @@ export default async function handler(req, res) {
           id: o.obr_id, slug: String(o.obr_id), title: o.obr_nome || '',
           cover: o.obr_imagem || '',
         }));
-        return res.json({ data: obras, total: d.total || 0 });
+        return res.json({ data: obras, total: d.total || 0, hasNext: d.pagina < d.totalPaginas });
+      }
+      // listagem por ranking (navegação do catálogo)
+      if (type === 'list') {
+        const page = parseInt(req.query.page || '1', 10);
+        const r = await fetch(`${VAPI}/obras/ranking?pagina=${page}`, { headers: { 'User-Agent': UA } });
+        const d = await r.json();
+        const obras = (d.obras || []).map((o, i) => ({
+          id: o.obr_id, slug: String(o.obr_id), title: o.obr_nome || '',
+          cover: o.obr_imagem || '', rank: (page - 1) * 20 + i + 1,
+        }));
+        return res.json({ data: obras, total: d.total || 0, hasNext: page < d.totalPaginas, page });
       }
       if (type === 'manga') {
         const r = await fetch(`${VAPI}/obras/${slug}`, { headers: { 'User-Agent': UA } });
@@ -99,6 +110,22 @@ export default async function handler(req, res) {
     }
 
     // ============ FONTE: Manga Livre .to (Madara — sem Cloudflare) ============
+    if (type === 'list') {
+      // listagem do catálogo (página de biblioteca do Madara por ordenação)
+      const page = parseInt(req.query.page || '1', 10);
+      const order = req.query.sort === 'latest' ? 'latest' : 'views';
+      const r = await fetch(`${BASE}/manga/?m_orderby=${order}&page=${page}`, {
+        headers: { 'User-Agent': UA, 'Accept-Language': 'pt-BR,pt;q=0.9' },
+      });
+      const html = await r.text();
+      const items = [...html.matchAll(/href="([^"]*manga\/([^"/]+)\/)"[^>]*>\s*<img[^>]*src="([^"]+)"/g)]
+        .map((m) => ({ slug: m[2], cover: m[3] }));
+      const out = items.map((it) => ({
+        slug: it.slug, cover: it.cover,
+        title: it.slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      }));
+      return res.json({ data: out, hasNext: out.length >= 24, page });
+    }
     if (type === 'search') {
       // busca: pega o primeiro resultado de mangá
       const r = await fetch(`${BASE}/?s=${encodeURIComponent(q)}`, {
