@@ -1125,7 +1125,9 @@ body.light .manga-card .cover .tag, body.light .manga-row .rcover .rtag{backgrou
   /* app-shell adaptável para tablets */
   .app-shell{max-width:840px;box-shadow:0 0 70px rgba(0,0,0,.75);border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)}
   /* bottom nav centralizada e com proporções confortáveis */
-  .bottom-nav{left:50%;right:auto;transform:translateX(-50%);width:480px}
+  /* centraliza com margem automática: a animação navIn termina em
+     transform:none e anularia um translateX(-50%) */
+  .bottom-nav{left:0;right:0;margin:0 auto;width:480px}
   /* home: cards maiores */
   .manga-card{width:136px}
   .manga-card .cover{width:136px;height:192px}
@@ -1220,7 +1222,7 @@ body.light .manga-card .cover .tag, body.light .manga-row .rcover .rtag{backgrou
   .manga-row h3{font-size:14.5px}
   .manga-row p{font-size:12.5px}
 
-  /* bottom nav mais larga, ainda flutuante e centralizada */
+  /* bottom nav mais larga no desktop, centralizada por margem (não por transform) */
   .bottom-nav{width:min(560px,42vw);border-radius:26px}
 
   /* capa maior */
