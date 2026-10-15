@@ -376,3 +376,33 @@ body.light .nav-btn.primary{color:var(--accent-ink)}
 @media (prefers-reduced-motion: reduce){
   .manga-card:hover .cover,.big-card:hover .bcover,.chapter-item:hover,.hero-card:hover .hero-cta{transform:none}
 }
+
+/* ---------- 20. CORREÇÕES (v3.1) baseadas na captura real ---------- */
+/* espaço de rolagem maior: a barra flutuante não pode cobrir textos dos cards */
+:root{--nav-h:104px}
+
+/* hero: nunca fica um bloco preto; largura garantida no carrossel */
+.hero-track{width:100%;display:flex}
+.hero-card{
+  position:relative;width:100%;min-width:100%;overflow:hidden;
+  background:linear-gradient(135deg,#1d2a5c 0%,#0c1020 55%,#2a1f08 100%);
+}
+.hero-bg-blur{background-color:#0c1020}
+.hero-cover-wrap{display:flex}
+
+/* barra inferior: abas com o mesmo peso visual; só a ativa ganha destaque suave */
+.bottom-nav{height:72px;padding:0 10px;border-radius:28px}
+.nav-item{flex:1;max-width:none;height:56px;border-radius:20px;font-size:11px;font-weight:800;color:#9aa5bf}
+.nav-item svg{width:22px;height:22px;color:#9aa5bf}
+.nav-item .n-fill{display:none}
+.nav-item .n-stroke{opacity:1}
+.nav-item.active{background:rgba(255,214,10,.14);color:var(--accent);box-shadow:inset 0 0 0 1.5px rgba(255,214,10,.45)}
+.nav-item.active svg{color:var(--accent)}
+.nav-item.active .n-stroke{opacity:1}
+.nav-item.active .n-fill{display:none}
+
+/* legibilidade dos textos abaixo das capas */
+.manga-card .sub{color:#b3bcd2;font-size:11px}
+.manga-card h3{color:var(--text)}
+.grid{gap:22px 14px}
+.scroll-row{gap:16px}
